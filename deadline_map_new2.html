@@ -143,58 +143,27 @@
         const daysLong = { 
             'mon': 'Montag', 'tue': 'Dienstag', 'wed': 'Mittwoch', 
             'thu': 'Donnerstag', 'fri': 'Freitag', 'sat': 'Samstag', 'sun': 'Sonntag' 
-        }
-        
-        // Sortierung: Deadline zuerst
+        };
+    
         const sortedTasks = [...tasks].sort((a,b) => new Date(a.deadline) - new Date(b.deadline) || a.importance - b.importance);
-
         const today = new Date(); today.setHours(0,0,0,0);
         if(sortedTasks.length === 0) return [];
+    
         const latestDeadline = new Date(Math.max(...sortedTasks.map(t => new Date(t.deadline))));
 
-        // Kalender bauen - mit Ausnahmetag-Handling
         const calendar = [];
         for(let d = new Date(today); d <= latestDeadline; d.setDate(d.getDate() + 1)){
             const dateStr = d.toISOString().slice(0,10);
             const dayKey = dayKeys[d.getDay()];
 
-            // Skip wenn innerhalb Ausnahmebereich
-            if(exceptions.some(e => dateStr >= e.dateFrom && dateStr <= e.dateTo)) continue;
+            // 1. Prüfen, ob der Tag eine Ausnahme ist
+            const isException = exceptions.some(e => dateStr >= e.dateFrom && dateStr <= e.dateTo);
+            if(isException) continue; // Tag komplett überspringen
 
-            // Finde aktive Phase
-            let activePhase = null;
-            
-            // Check 1: Liegt Datum direkt in Phase?
-            activePhase = phases.find(p => dateStr >= p.start && dateStr <= p.end);
-            
-            // Check 2: Liegt Datum nach Phase, aber Phase läuft über Ausnahmetag?
-            if(!activePhase){
-                for(const phase of phases){
-                    for(const exc of exceptions){
-                        // Wenn Phase vor Ausnahme liegt UND Ausnahme innerhalb Phase liegt
-                        if(phase.start <= exc.dateFrom && phase.end >= exc.dateTo){
-                            // Berechne: wie viele Ausnahmetage in Phase?
-                            let exceptionDays = 0;
-                            let tempDate = new Date(exc.dateFrom);
-                            while(tempDate <= new Date(exc.dateTo)){
-                                exceptionDays++;
-                                tempDate.setDate(tempDate.getDate() + 1);
-                            }
-                            // Verlängere Phase um Ausnahmetage
-                            const extendedEnd = new Date(phase.end);
-                            extendedEnd.setDate(extendedEnd.getDate() + exceptionDays);
-                            const extendedEndStr = extendedEnd.toISOString().slice(0,10);
-                            
-                            if(dateStr >= phase.start && dateStr <= extendedEndStr){
-                                activePhase = phase;
-                                break;
-                            }
-                        }
-                    }
-                    if(activePhase) break;
-                }
-            }
-            
+            // 2. Prüfen, ob der Tag in EINE der definierten Phasen fällt
+            let activePhase = phases.find(p => dateStr >= p.start && dateStr <= p.end);
+        
+            // 3. Wenn in Phase und Stunden für diesen Wochentag hinterlegt sind
             if(activePhase && activePhase[dayKey] > 0) {
                 calendar.push({
                     date: dateStr,
@@ -203,8 +172,9 @@
                 });
             }
         }
+    
 
-        // Aufgaben verteilen
+        // Aufgabenverteilung bleibt gleich...
         for(const task of sortedTasks){
             let taskRemaining = task.minutes;
             for(const day of calendar){
