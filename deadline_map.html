@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lernplan & Kapazitäts-Check</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; background: #f5f8ff; }
+    h1, h2 { color: #1f3b7c; }
+    .warn { color: #b22222; font-weight: bold; }
+    .ok { color: #2a7f2a; }
+    .task-row, .slot-row, .exception-row { 
+      margin-bottom: 0.5rem; 
+      padding: 10px; 
+      background: #fff; 
+      border-radius: 4px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    }
+    input, select { padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+    button { cursor: pointer; padding: 6px 12px; border-radius: 4px; border: none; }
+    .btn-add { background: #1f3b7c; color: white; margin-top: 5px; }
+    .btn-run { background: #2a7f2a; color: white; font-size: 1.1rem; width: 100%; margin-top: 20px; }
+    .btn-del { background: #ff4d4d; color: white; float: right; }
+    #result { margin-top: 30px; padding: 20px; background: white; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .overdue { color: #ff4500; font-weight: bold; background: #fff0f0; }
+  </style>
+</head>
+<body>
+
+  <h1>Lernplan & Kapazitäts-Check</h1>
+
+  <section>
+    <h2>1. Aufgaben (Deadlines)</h2>
+    <div id="tasks"></div>
+    <button id="add-task" class="btn-add">+ Aufgabe hinzufügen</button>
+  </section>
+
+  <section>
+    <h2>2. Wöchentliche Zeitfenster</h2>
+    <div id="slots"></div>
+    <button id="add-slot" class="btn-add">+ Slot hinzufügen</button>
+  </section>
+
+  <section>
+    <h2>3. Ausnahmetage (Keine Lernzeit)</h2>
+    <div id="exceptions"></div>
+    <button id="add-exception" class="btn-add">+ Ausnahmetag hinzufügen</button>
+  </section>
+
+  <button id="run-schedule" class="btn-run">📅 Schedule erstellen & prüfen</button>
+
+  <div id="result"></div>
+
+  <script>
+    // --- HILFSFUNKTIONEN ---
+    const toLocalISO = (date) => date.toLocaleDateString('sv-SE'); 
+    const formatDateDE = (ds) => ds.split('-').reverse().join('.');
+
+    // --- LOGIK: ZEITPLANUNG ---
+    function schedule(tasks, slots, exceptions) {
+      const plan = [];
+      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+      
+      const sortedTasks = [...tasks].sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+      
+      const slotMap = {};
+      slots.forEach(s => { slotMap[s.day] = Math.round(s.hours * 60); });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const maxDL = new Date(Math.max(...tasks.map(t => new Date(t.deadline))));
+
+      const calendar = [];
+      for (let d = new Date(today); d <= maxDL; d.setDate(d.getDate() + 1)) {
+        const dStr = toLocalISO(d);
+        const dName = dayNames[d.getDay()];
+        const isEx = exceptions.some(e => dStr >= e.from && dStr <= e.to);
+
+        if (!isEx && slotMap[dName] > 0) {
+          calendar.push({ date: dStr, day: dName, remaining: slotMap[dName] });
+        }
+      }
+
+      sortedTasks.forEach(task => {
+        let needed = task.minutes;
+        for (let day of calendar) {
+          if (needed <= 0) break;
+          if (day.remaining <= 0) continue;
+          if (new Date(day.date) > new Date(task.deadline)) continue; 
+
+          const alloc = Math.min(needed, day.remaining);
+          plan.push({
+            date: day.date,
+            dayName: day.day,
+            title: task.title,
+            minutes: alloc,
+            importance: task.importance,
+            status: 'assigned'
+          });
+          day.remaining -= alloc;
+          needed -= alloc;
+        }
+        if (needed > 0) {
+          plan.push({ title: task.title, minutes: needed, status: 'overdue' });
+        }
+      });
+
+      return plan.sort((a, b) => (a.date > b.date ? 1 : -1));
+    }
+
+    // --- UI FUNKTIONEN ---
+    function createRow(containerId, html) {
+      const div = document.createElement('div');
+      div.className = containerId.slice(0, -1) + '-row';
+      div.innerHTML = html + `<button class="btn-del" onclick="this.parentElement.remove()">✕</button>`;
+      document.getElementById(containerId).appendChild(div);
+    }
+
+    // Task Row mit Step 0.25 und Default 0
+    document.getElementById('add-task').onclick = () => createRow('tasks', `
+      <input class="t-title" placeholder="Aufgabe" style="width:140px">
+      <input class="t-hrs" type="number" step="0.25" value="0" style="width:55px"> h
+      <input class="t-dl" type="date">
+      Prio <input class="t-imp" type="number" value="1" style="width:35px">
+    `);
+
+    // Slot Row mit Step 0.25 und Default 0
+    document.getElementById('add-slot').onclick = () => createRow('slots', `
+      <select class="s-day">
+        ${['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d=>`<option>${d}</option>`).join('')}
+      </select>
+      <input class="s-hrs" type="number" step="0.25" value="0" style="width:55px"> h/Tag
+    `);
+
+    document.getElementById('add-exception').onclick = () => createRow('exceptions', `
+      <input class="e-name" placeholder="Grund" style="width:100px">
+      <input class="e-from" type="date"> bis <input class="e-to" type="date">
+    `);
+
+    // --- AUSFÜHRUNG ---
+    document.getElementById('run-schedule').onclick = () => {
+      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
+        title: r.querySelector('.t-title').value,
+        minutes: r.querySelector('.t-hrs').value * 60,
+        deadline: r.querySelector('.t-dl').value,
+        importance: r.querySelector('.t-imp').value
+      })).filter(t => t.title && t.deadline);
+
+      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
+        day: r.querySelector('.s-day').value,
+        hours: r.querySelector('.s-hrs').value
+      })).filter(s => s.hours > 0); // Nur Slots mit Zeit berücksichtigen
+
+      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
+        from: r.querySelector('.e-from').value,
+        to: r.querySelector('.e-to').value
+      })).filter(e => e.from && e.to);
+
+      if (tasks.length === 0) return alert("Bitte Aufgaben eingeben!");
+
+      const results = schedule(tasks, slots, exceptions);
+      const totalNeeded = tasks.reduce((sum, t) => sum + t.minutes, 0);
+      const totalAssigned = results.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0);
+
+      let html = `<h3>Check: ${totalAssigned >= totalNeeded ? '<span class="ok">Zeit reicht aus ✅</span>' : '<span class="warn">Zeitmangel! ⛔</span>'}</h3>`;
+      html += `<p>Benötigt: ${(totalNeeded/60).toFixed(2)}h | Geplant: ${(totalAssigned/60).toFixed(2)}h</p>`;
+      
+      html += `<table><tr><th>Datum</th><th>Aufgabe</th><th>Dauer</th><th>Prio</th></tr>`;
+      results.forEach(r => {
+        const isOverdue = r.status === 'overdue';
+        html += `<tr class="${isOverdue ? 'overdue' : ''}">
+          <td>${isOverdue ? 'NICHT MACHBAR' : formatDateDE(r.date) + ' ('+r.dayName+')'}</td>
+          <td>${r.title}</td>
+          <td>${(r.minutes/60).toFixed(2)}h</td>
+          <td>${r.importance || '-'}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+      document.getElementById('result').innerHTML = html;
+    };
+
+    // Standard-Slots initialisieren mit 0h
+    ['Montag','Donnerstag','Freitag'].forEach(d => {
+      createRow('slots', `<select class="s-day">${['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day=>`<option ${day===d?'selected':''}>${day}</option>`).join('')}</select><input class="s-hrs" type="number" step="0.25" value="0" style="width:55px"> h/Tag`);
+    });
+  </script>
+</body>
+</html>

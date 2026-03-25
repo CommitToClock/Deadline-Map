@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lernplan & Kapazitäts-Check</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; background: #f5f8ff; }
+    h1, h2 { color: #1f3b7c; }
+    .warn { color: #b22222; font-weight: bold; }
+    .ok { color: #2a7f2a; }
+    .critical { color: #ff4500; font-weight: bold; }
+    .today { background: #fff3b0; font-weight: bold; }
+    .block { margin-bottom: .4rem; }
+    .task-row, .slot-row, .blocker-row, .exception-row { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Lernplan & Kapazitäts-Check</h1>
+
+  <div>
+    <h2>Aufgaben (Deadlines)</h2>
+    <button id="add-task">Aufgabe hinzufügen</button>
+    <div id="tasks"></div>
+
+    <h2>Freie Zeitfenster</h2>
+    <button id="add-slot">Slot hinzufügen</button>
+    <div id="slots"></div>
+
+    <h2>Ausnahmetage (z.B. Feiertage)</h2>
+    <button id="add-exception">Ausnahmetag hinzufügen</button>
+    <div id="exceptions"></div>
+  </div>
+
+  <button id="run-schedule">Schedule erstellen</button>
+  <div id="result"></div>
+
+<script>
+    // --- HILFSFUNKTIONEN ---
+    function timeToMinutes(timeStr) {
+        if(!timeStr) return 0;
+        const [h,m] = timeStr.split(':').map(Number);
+        return h*60 + m;
+    }
+
+    function formatDate(dateStr) {
+        if(!dateStr) return "";
+        const [y, m, d] = dateStr.split('-');
+        return `${d}.${m}.${y}`;
+    }
+
+    // --- UI-ERZEUGUNG (DOM) ---
+    function createTaskRow(data={title:'', minutes:0, deadline:'', importance:1}){
+        const wrapper = document.createElement('div');
+        wrapper.className='task-row';
+        wrapper.innerHTML = `
+            <input class='task-title' placeholder='Aufgabe' value='${data.title}' style='width:150px' />
+            <input class='task-hours' type='number' min='0.25' step='0.25' value='${(data.minutes / 60).toFixed(2)}' style='width:60px' />
+            <span>Stunden | Deadline:</span>
+            <input class='task-deadline' type='date' value='${data.deadline}' />
+            <span>Prio (1-5):</span>
+            <input class='task-importance' type='number' min='1' max='5' value='${data.importance}' style='width:40px' />
+            <button class='delete-task'>✕</button>
+        `;
+        wrapper.querySelector('.delete-task').addEventListener('click',()=>{ wrapper.remove(); });
+        return wrapper;
+    }
+
+    function createSlotRow(data={start:'', end:'', mon:0, tue:0, wed:0, thu:0, fri:0, sat:0, sun:0}){
+        const wrapper = document.createElement('div');
+        wrapper.className='slot-row';
+        wrapper.style = "border:1px solid #ccc; padding:10px; margin-bottom:10px; background:#fff; border-radius:5px;";
+        wrapper.innerHTML = `
+            <div>
+                <strong>Zeitraum:</strong> von <input class='slot-start' type='date' value='${data.start}'> 
+                bis <input class='slot-end' type='date' value='${data.end}'>
+                <button class='delete-slot' style="float:right; color:red;">Löschen ✕</button>
+            </div>
+            <div style="margin-top:8px;">
+                Stunden pro Tag:<br>
+                Mo <input class='s-mon' type='number' step='0.5' value='${data.mon}' style='width:35px'>
+                Di <input class='s-tue' type='number' step='0.5' value='${data.tue}' style='width:35px'>
+                Mi <input class='s-wed' type='number' step='0.5' value='${data.wed}' style='width:35px'>
+                Do <input class='s-thu' type='number' step='0.5' value='${data.thu}' style='width:35px'>
+                Fr <input class='s-fri' type='number' step='0.5' value='${data.fri}' style='width:35px'>
+                Sa <input class='s-sat' type='number' step='0.5' value='${data.sat}' style='width:35px'>
+                So <input class='s-sun' type='number' step='0.5' value='${data.sun}' style='width:35px'>
+            </div>
+        `;
+        wrapper.querySelector('.delete-slot').addEventListener('click',()=>{ wrapper.remove(); });
+        return wrapper;
+    }
+
+    function createExceptionRow(data={dateFrom:'', dateTo:'', name:''}){
+        const wrapper = document.createElement('div');
+        wrapper.className='exception-row';
+        wrapper.innerHTML = `
+            <input class='exception-name' placeholder='Grund' value='${data.name}' style='width:100px' />
+            <input class='exception-date-from' type='date' value='${data.dateFrom}' />
+            <span>bis</span>
+            <input class='exception-date-to' type='date' value='${data.dateTo}' />
+            <button class='delete-exception'>✕</button>
+        `;
+        wrapper.querySelector('.delete-exception').addEventListener('click',()=>{ wrapper.remove(); });
+        return wrapper;
+    }
+
+    // --- DATEN AUS UI AUSLESEN ---
+    function getTasksFromUI(){
+        return [...document.querySelectorAll('.task-row')].map(row => ({
+            title: row.querySelector('.task-title').value,
+            minutes: Number(row.querySelector('.task-hours').value) * 60,
+            deadline: row.querySelector('.task-deadline').value,
+            importance: Number(row.querySelector('.task-importance').value)
+        })).filter(t => t.title && t.deadline);
+    }
+
+    function getPhasesFromUI() {
+        return [...document.querySelectorAll('.slot-row')].map(row => ({
+            start: row.querySelector('.slot-start').value,
+            end: row.querySelector('.slot-end').value,
+            mon: Number(row.querySelector('.s-mon').value),
+            tue: Number(row.querySelector('.s-tue').value),
+            wed: Number(row.querySelector('.s-wed').value),
+            thu: Number(row.querySelector('.s-thu').value),
+            fri: Number(row.querySelector('.s-fri').value),
+            sat: Number(row.querySelector('.s-sat').value),
+            sun: Number(row.querySelector('.s-sun').value)
+        })).filter(p => p.start && p.end);
+    }
+
+    function getExceptionsFromUI(){
+        return [...document.querySelectorAll('.exception-row')].map(row => ({
+            dateFrom: row.querySelector('.exception-date-from').value,
+            dateTo: row.querySelector('.exception-date-to').value
+        })).filter(e => e.dateFrom && e.dateTo);
+    }
+
+    // --- KERN-LOGIK (PLANUNG) ---
+    function schedule(tasks, phases, exceptions) {
+        const plan = [];
+        const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+        const daysLong = { 'MON': 'Montag', 'TUE': 'Dienstag', 'WED': 'Mittwoch', 'THU': 'Donnerstag', 'FRI': 'Freitag', 'SAT': 'Samstag', 'SUN': 'Sonntag' };
+        
+        // Sortierung: Deadline zuerst
+        const sortedTasks = [...tasks].sort((a,b) => new Date(a.deadline) - new Date(b.deadline) || a.importance - b.importance);
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        if(sortedTasks.length === 0) return [];
+        const latestDeadline = new Date(Math.max(...sortedTasks.map(t => new Date(t.deadline))));
+
+        // Kalender bauen
+        const calendar = [];
+        for(let d = new Date(today); d <= latestDeadline; d.setDate(d.getDate() + 1)){
+            const dateStr = d.toISOString().slice(0,10);
+            const dayKey = dayKeys[d.getDay()];
+
+            if(exceptions.some(e => dateStr >= e.dateFrom && dateStr <= e.dateTo)) continue;
+
+            const activePhase = phases.find(p => dateStr >= p.start && dateStr <= p.end);
+            if(activePhase && activePhase[dayKey] > 0) {
+                calendar.push({
+                    date: dateStr,
+                    dayLabel: daysLong[dayKey.toUpperCase()],
+                    remaining: activePhase[dayKey] * 60
+                });
+            }
+        }
+
+        // Aufgaben verteilen
+        for(const task of sortedTasks){
+            let taskRemaining = task.minutes;
+            for(const day of calendar){
+                if(taskRemaining <= 0) break;
+                if(day.remaining <= 0) continue;
+                if(new Date(day.date) > new Date(task.deadline)) break;
+
+                const timeToAssign = Math.min(taskRemaining, day.remaining);
+                plan.push({
+                    title: task.title,
+                    date: day.date,
+                    dayLabel: day.dayLabel,
+                    minutes: timeToAssign,
+                    importance: task.importance,
+                    status: 'assigned'
+                });
+                day.remaining -= timeToAssign;
+                taskRemaining -= timeToAssign;
+            }
+            if(taskRemaining > 0){
+                plan.push({ title: task.title, importance: task.importance, status: 'overdue', minutes: taskRemaining });
+            }
+        }
+        return plan;
+    }
+
+    // --- EVENT HANDLER ---
+    document.getElementById('add-task').addEventListener('click', () => document.getElementById('tasks').appendChild(createTaskRow()));
+    document.getElementById('add-slot').addEventListener('click', () => document.getElementById('slots').appendChild(createSlotRow()));
+    document.getElementById('add-exception').addEventListener('click', () => document.getElementById('exceptions').appendChild(createExceptionRow()));
+
+    document.getElementById('run-schedule').addEventListener('click', () => {
+        const tasks = getTasksFromUI();
+        const phases = getPhasesFromUI();
+        const exceptions = getExceptionsFromUI();
+
+        const plan = schedule(tasks, phases, exceptions);
+        
+        let html = `<h2>Dein Zeitplan</h2>`;
+        html += `<table border="1" style="width:100%; border-collapse:collapse; background:white;">
+                    <thead style="background:#1f3b7c; color:white;">
+                        <tr>
+                            <th style="padding:10px;">Datum</th>
+                            <th style="padding:10px;">Tag</th>
+                            <th style="padding:10px;">Aufgabe</th>
+                            <th style="padding:10px;">Dauer</th>
+                            <th style="padding:10px;">Prio</th>
+                        </tr>
+                    </thead><tbody>`;
+        
+        plan.forEach(item => {
+            const isOverdue = item.status === 'overdue';
+            const rowStyle = isOverdue ? 'style="background:#fff0f0; color:#b22222;"' : '';
+            
+            html += `<tr ${rowStyle}>
+                <td style="padding:8px; text-align:center;">${isOverdue ? '<strong>ZUSATZ</strong>' : formatDate(item.date)}</td>
+                <td style="padding:8px; text-align:center;">${isOverdue ? '-' : item.dayLabel}</td>
+                <td style="padding:8px;">${item.title} ${isOverdue ? '<br><small>(Muss zusätzlich eingeplant werden)</small>' : ''}</td>
+                <td style="padding:8px; text-align:center;">${(item.minutes/60).toFixed(2)}h</td>
+                <td style="padding:8px; text-align:center;">${item.importance}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+        document.getElementById('result').innerHTML = html;
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lernplan & Kapazitäts-Check</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; background: #f5f8ff; }
+    h1, h2 { color: #1f3b7c; }
+    .warn { color: #b22222; font-weight: bold; }
+    .ok { color: #2a7f2a; }
+    .critical { color: #ff4500; font-weight: bold; }
+    .today { background: #fff3b0; font-weight: bold; }
+    .block { margin-bottom: .4rem; }
+    .task-row, .slot-row, .blocker-row, .exception-row { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Lernplan & Kapazitäts-Check</h1>
+
+  <div>
+    <h2>Aufgaben (Deadlines)</h2>
+    <button id="add-task">Aufgabe hinzufügen</button>
+    <div id="tasks"></div>
+
+    <h2>Freie Zeitfenster (mit Budget)</h2>
+    <button id="add-slot">Slot hinzufügen</button>
+    <div id="slots"></div>
+
+    <h2>Regelmäßige Blocker (z.B. Fußball, Klavier)</h2>
+    <button id="add-blocker">Blocker hinzufügen</button>
+    <div id="blockers"></div>
+
+    <h2>Ausnahmetage (z.B. Feiertage)</h2>
+    <button id="add-exception">Ausnahmetag hinzufügen</button>
+    <div id="exceptions"></div>
+  </div>
+
+  <button id="run-schedule">Schedule erstellen</button>
+  <div id="result"></div>
+
+  <script>
+    function isValidDate(dateString) {
+      const date = new Date(dateString);
+      return !isNaN(date.getTime());
+    }
+
+    function minuteToQuarterHour(min) {
+      return (Math.round(min / 15) / 4).toFixed(2);
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}.${m}.${y}`;
+    }
+
+    function splitIntoBlocks(task, maxBlock=45){
+      const blocks=[];
+      let remaining=task.minutes;
+      while(remaining>0){
+        const chunk=Math.min(maxBlock, remaining);
+        blocks.push({ taskId:task.id, title:task.title, minutes:chunk, importance:task.importance });
+        remaining -= chunk;
+      }
+      return blocks;
+    }
+
+    function minuteLabel(totalMinutes){
+      const hh = Math.floor(totalMinutes/60);
+      const mm = totalMinutes%60;
+      return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    }
+
+    function timeToMinutes(timeStr){
+      const [h,m] = timeStr.split(':').map(Number);
+      return h*60 + m;
+    }
+
+    function schedule(tasks, slots, blockers, exceptions){
+      const plan=[];
+      
+      // Adjust deadlines for exceptions (Feiertage)
+      const adjustedTasks = tasks.map(task => {
+        let deadline = new Date(task.deadline);
+        let moved = false;
+        while(exceptions.some(e => {
+          const d = deadline.toISOString().slice(0,10);
+          return d >= e.dateFrom && d <= e.dateTo;
+        })){
+          deadline.setDate(deadline.getDate() + 1);
+          moved = true;
+        }
+        return {...task, adjustedDeadline: deadline.toISOString().slice(0,10), deadlineMoved: moved};
+      });
+
+      // Sort by importance first (1=highest, 5=lowest), then by deadline
+      const sortedTasks = [...adjustedTasks].sort((a,b)=> a.importance-b.importance || new Date(a.adjustedDeadline)-new Date(b.adjustedDeadline));
+
+      // Build a weekly slot map: {dayName -> availableMinutes}
+      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+      const slotMap = {};
+      slots.forEach(s => {
+        slotMap[s.day] = Math.round(s.maxHours * 60);
+      });
+
+      // Calculate date range: today to latest deadline
+      const today = new Date();
+      const latestDeadline = new Date(Math.max(...sortedTasks.map(t => new Date(t.adjustedDeadline))));
+      
+      // Create available slots for each day in range
+      const availableSlots = [];
+      for(let d = new Date(today); d <= latestDeadline; d.setDate(d.getDate() + 1)){
+        const dayName = dayNames[d.getDay()];
+        const dateStr = new Date(d).toISOString().slice(0,10);
+        
+        if(slotMap[dayName]){
+          availableSlots.push({
+            date: dateStr,
+            day: dayName,
+            maxMinutes: slotMap[dayName],
+            cursor: 8*60,
+            used: 0,
+          });
+        }
+      }
+
+      // Plan tasks into available slots
+      for(const task of sortedTasks){
+        const blocks = splitIntoBlocks(task);
+        for(const block of blocks){
+          let assigned = false;
+          for(const slot of availableSlots){
+            if(slot.used >= slot.maxMinutes) continue;
+
+            // Check for blockers on this day
+            const dayBlockers = blockers.filter(b => b.day === slot.day);
+            let start = slot.cursor;
+            let end = start + block.minutes;
+            let blocked = false;
+            for(const blocker of dayBlockers){
+              const bStart = timeToMinutes(blocker.start);
+              const bEnd = timeToMinutes(blocker.end);
+              if((start < bEnd && end > bStart)){
+                blocked = true;
+                break;
+              }
+            }
+            if(blocked) continue;
+
+            // Check budget
+            if(slot.used + block.minutes > slot.maxMinutes) continue;
+
+            // Assign
+            plan.push({
+              ...block,
+              status:'assigned',
+              date: slot.date,
+              slotStart: `${formatDate(slot.date)} (${slot.day}) ${minuteLabel(start)}`,
+              slotEnd: `${formatDate(slot.date)} (${slot.day}) ${minuteLabel(end)}`,
+            });
+            slot.cursor = end;
+            slot.used += block.minutes;
+            assigned = true;
+            break;
+          }
+          if(!assigned){
+            plan.push({...block, status:'unassigned'});
+          }
+        }
+      }
+      return plan;
+    }
+
+    function capacityCheck(tasks, slots){
+      const need = tasks.reduce((s,t)=>s+t.minutes,0);
+      
+      // Calculate available time over multiple weeks
+      const today = new Date();
+      const latestDeadline = new Date(Math.max(...tasks.map(t => new Date(t.deadline))));
+      
+      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+      const slotMap = {};
+      slots.forEach(s => {
+        slotMap[s.day] = Math.round(s.maxHours * 60);
+      });
+      
+      let av = 0;
+      for(let d = new Date(today); d <= latestDeadline; d.setDate(d.getDate() + 1)){
+        const dayName = dayNames[new Date(d).getDay()];
+        if(slotMap[dayName]){
+          av += slotMap[dayName];
+        }
+      }
+      
+      return { need, av, ok: av>=need, diff: Math.abs(av-need) };
+    }
+
+    function criticalPath(tasks, slots){
+      // Simple critical path: tasks with earliest deadlines and high importance
+      const sorted = [...tasks].sort((a,b)=> new Date(a.deadline)-new Date(b.deadline) || b.importance-a.importance);
+      return sorted.slice(0, Math.min(3, sorted.length)); // Top 3 critical
+    }
+
+    function createTaskRow(data={title:'', minutes:0, deadline:'', importance:1}){
+      const wrapper = document.createElement('div');
+      wrapper.className='task-row';
+      wrapper.innerHTML = `
+        <input class='task-title' placeholder='Aufgabe' value='${data.title}' style='width:150px' />
+        <input class='task-hours' type='number' min='0.25' step='0.25' value='${(data.minutes / 60).toFixed(2)}' style='width:70px' />
+        <span>Stunden</span>
+        <input class='task-deadline' type='date' value='${data.deadline}' />
+        <input class='task-importance' type='number' min='1' max='5' value='${data.importance}' style='width:50px' />
+        <button class='delete-task'>✕</button>
+      `;
+      wrapper.querySelector('.delete-task').addEventListener('click',()=>{
+        wrapper.remove();
+        saveTasksToStorage();
+      });
+      return wrapper;
+    }
+
+    function createSlotRow(data={day:'Montag', maxHours:0}){
+      const wrapper = document.createElement('div');
+      wrapper.className='slot-row';
+      wrapper.innerHTML = `
+        <select class='slot-day' style='width:120px'>
+          <option value='Montag' ${data.day==='Montag'?'selected':''}>Montag</option>
+          <option value='Dienstag' ${data.day==='Dienstag'?'selected':''}>Dienstag</option>
+          <option value='Mittwoch' ${data.day==='Mittwoch'?'selected':''}>Mittwoch</option>
+          <option value='Donnerstag' ${data.day==='Donnerstag'?'selected':''}>Donnerstag</option>
+          <option value='Freitag' ${data.day==='Freitag'?'selected':''}>Freitag</option>
+          <option value='Samstag' ${data.day==='Samstag'?'selected':''}>Samstag</option>
+          <option value='Sonntag' ${data.day==='Sonntag'?'selected':''}>Sonntag</option>
+        </select>
+        <input class='slot-max-hours' type='number' min='0.25' step='0.25' value='${data.maxHours}' style='width:70px' />
+        <span>Max Stunden</span>
+        <button class='delete-slot'>✕</button>
+      `;
+      wrapper.querySelector('.delete-slot').addEventListener('click',()=>{
+        wrapper.remove();
+        saveSlotsToStorage();
+      });
+      return wrapper;
+    }
+
+    function createBlockerRow(data={day:'Montag', start:'', end:'', name:''}){
+      const wrapper = document.createElement('div');
+      wrapper.className='blocker-row';
+      wrapper.innerHTML = `
+        <select class='blocker-day' style='width:120px'>
+          <option value='Montag' ${data.day==='Montag'?'selected':''}>Montag</option>
+          <option value='Dienstag' ${data.day==='Dienstag'?'selected':''}>Dienstag</option>
+          <option value='Mittwoch' ${data.day==='Mittwoch'?'selected':''}>Mittwoch</option>
+          <option value='Donnerstag' ${data.day==='Donnerstag'?'selected':''}>Donnerstag</option>
+          <option value='Freitag' ${data.day==='Freitag'?'selected':''}>Freitag</option>
+          <option value='Samstag' ${data.day==='Samstag'?'selected':''}>Samstag</option>
+          <option value='Sonntag' ${data.day==='Sonntag'?'selected':''}>Sonntag</option>
+        </select>
+        <input class='blocker-start' type='time' value='${data.start}' style='width:80px' />
+        <input class='blocker-end' type='time' value='${data.end}' style='width:80px' />
+        <input class='blocker-name' placeholder='Name' value='${data.name}' style='width:120px' />
+        <button class='delete-blocker'>✕</button>
+      `;
+      wrapper.querySelector('.delete-blocker').addEventListener('click',()=>{
+        wrapper.remove();
+        saveBlockersToStorage();
+      });
+      return wrapper;
+    }
+
+    function createExceptionRow(data={dateFrom:'', dateTo:'', name:''}){
+      const wrapper = document.createElement('div');
+      wrapper.className='exception-row';
+      wrapper.innerHTML = `
+        <input class='exception-name' placeholder='Name' value='${data.name}' style='width:100px' />
+        <input class='exception-date-from' type='date' value='${data.dateFrom}' style='width:120px' />
+        <input class='exception-date-to' type='date' value='${data.dateTo}' style='width:120px' />
+        <button class='delete-exception'>✕</button>
+      `;
+      wrapper.querySelector('.delete-exception').addEventListener('click',()=>{
+        wrapper.remove();
+        saveExceptionsToStorage();
+      });
+      return wrapper;
+    }
+
+    function getTasksFromUI(){
+      return [...document.querySelectorAll('.task-row')].filter(row => 
+        row.querySelector('.task-title').value.trim() !== '' &&
+        row.querySelector('.task-deadline').value !== '' &&
+        isValidDate(row.querySelector('.task-deadline').value)
+      ).map((row, i)=>({
+        id:i+1,
+        title: row.querySelector('.task-title').value,
+        minutes: Number(row.querySelector('.task-hours').value) * 60,
+        deadline: row.querySelector('.task-deadline').value,
+        importance: Number(row.querySelector('.task-importance').value),
+      }));
+    }
+
+    function getSlotsFromUI(){
+      return [...document.querySelectorAll('.slot-row')].map(row=>({
+        day: row.querySelector('.slot-day').value || 'Tag',
+        maxHours: Number(row.querySelector('.slot-max-hours').value) || 0,
+      })).filter(s=>s.maxHours > 0);
+    }
+
+    function getBlockersFromUI(){
+      return [...document.querySelectorAll('.blocker-row')].map(row=>({
+        day: row.querySelector('.blocker-day').value,
+        start: row.querySelector('.blocker-start').value,
+        end: row.querySelector('.blocker-end').value,
+        name: row.querySelector('.blocker-name').value,
+      })).filter(b=>b.start && b.end);
+    }
+
+    function getExceptionsFromUI(){
+      return [...document.querySelectorAll('.exception-row')].map(row=>({
+        name: row.querySelector('.exception-name').value,
+        dateFrom: row.querySelector('.exception-date-from').value,
+        dateTo: row.querySelector('.exception-date-to').value,
+      })).filter(e=>e.dateFrom && e.dateTo && isValidDate(e.dateFrom) && isValidDate(e.dateTo));
+    }
+
+    function saveTasksToStorage(){
+      const tasks = getTasksFromUI();
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasksFromStorage(){
+      const stored = localStorage.getItem('tasks');
+      if(stored){
+        const tasks = JSON.parse(stored);
+        tasks.forEach(task => document.getElementById('tasks').appendChild(createTaskRow(task)));
+      }
+    }
+
+    function saveSlotsToStorage(){
+      const slots = getSlotsFromUI();
+      localStorage.setItem('slots', JSON.stringify(slots));
+    }
+
+    function loadSlotsFromStorage(){
+      const stored = localStorage.getItem('slots');
+      if(stored){
+        const slots = JSON.parse(stored);
+        slots.forEach(slot => document.getElementById('slots').appendChild(createSlotRow(slot)));
+      }
+    }
+
+    function saveBlockersToStorage(){
+      const blockers = getBlockersFromUI();
+      localStorage.setItem('blockers', JSON.stringify(blockers));
+    }
+
+    function loadBlockersFromStorage(){
+      const stored = localStorage.getItem('blockers');
+      if(stored){
+        const blockers = JSON.parse(stored);
+        blockers.forEach(blocker => document.getElementById('blockers').appendChild(createBlockerRow(blocker)));
+      }
+    }
+
+    function saveExceptionsToStorage(){
+      const exceptions = getExceptionsFromUI();
+      localStorage.setItem('exceptions', JSON.stringify(exceptions));
+    }
+
+    function loadExceptionsFromStorage(){
+      const stored = localStorage.getItem('exceptions');
+      if(stored){
+        const exceptions = JSON.parse(stored);
+        exceptions.forEach(exception => document.getElementById('exceptions').appendChild(createExceptionRow(exception)));
+      }
+    }
+
+    document.getElementById('add-task').addEventListener('click',()=>{
+      document.getElementById('tasks').appendChild(createTaskRow());
+      saveTasksToStorage();
+    });
+
+    document.getElementById('add-slot').addEventListener('click',()=>{
+      document.getElementById('slots').appendChild(createSlotRow());
+      saveSlotsToStorage();
+    });
+
+    document.getElementById('add-blocker').addEventListener('click',()=>{
+      document.getElementById('blockers').appendChild(createBlockerRow());
+      saveBlockersToStorage();
+    });
+
+    document.getElementById('add-exception').addEventListener('click',()=>{
+      document.getElementById('exceptions').appendChild(createExceptionRow());
+      saveExceptionsToStorage();
+    });
+
+    document.getElementById('run-schedule').addEventListener('click',()=>{
+      const tasks = getTasksFromUI();
+      const slots = getSlotsFromUI();
+      const blockers = getBlockersFromUI();
+      const exceptions = getExceptionsFromUI();
+
+      // Check if all deadlines are in the future
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let hasPastDeadline = false;
+      tasks.forEach(task => {
+        if (new Date(task.deadline) < today) {
+          alert(`Fehler: Aufgabe "${task.title}" hat eine Deadline in der Vergangenheit oder heute!`);
+          hasPastDeadline = true;
+        }
+      });
+      if (hasPastDeadline) return;
+
+      const c = capacityCheck(tasks, slots);
+      let html = '';
+      html += `<h2>Kapazitäts-Check</h2>`;
+      html += `<p>${c.ok ? '<span class="ok">Genug Zeit vorhanden ✅</span>' : '<span class="warn">Nicht genug Zeit ⛔</span>'}</p>`;
+      html += `<p>Verfügbar: ${minuteToQuarterHour(c.av)} Stunden, Benötigt: ${minuteToQuarterHour(c.need)} Stunden, Differenz: ${minuteToQuarterHour(c.diff)} Stunden</p>`;
+
+      const critical = criticalPath(tasks, slots);
+      html += `<h2>Kritischer Pfad</h2>`;
+      critical.forEach(task => {
+        html += `<div class="critical">${task.title} (Deadline: ${task.deadline}, Wichtigkeit: ${task.importance})</div>`;
+      });
+
+      const plan = schedule(tasks, slots, blockers, exceptions);
+      html += `<h2>Geplanter Schedule</h2>`;
+      
+      // Group by date
+      const grouped = {};
+      plan.forEach(item => {
+        if(item.status === 'assigned'){
+          const date = item.date;
+          if(!grouped[date]) grouped[date] = [];
+          grouped[date].push(item);
+        } else {
+          if(!grouped['Unzugewiesen']) grouped['Unzugewiesen'] = [];
+          grouped['Unzugewiesen'].push(item);
+        }
+      });
+      
+      html += `<table border="1" style="width:100%; border-collapse:collapse;">`;
+      html += `<tr><th>Datum</th><th>Aufgabe</th><th>Priorität</th></tr>`;
+      Object.keys(grouped).sort().forEach(date => {
+        const day = grouped[date][0]?.slotStart?.split(' ')[1]?.replace(/[()]/g, '') || '';
+        grouped[date].forEach(item => {
+          const displayDate = item.status === 'assigned' ? `${formatDate(date)} ${day}` : date;
+          html += `<tr><td style="padding:5px;">${displayDate}</td><td style="padding:5px;">${item.title}`;
+          if(item.status==='unassigned') html += ` (kein Zeitfenster)`;
+          html += `</td><td style="padding:5px;">${item.importance}</td></tr>`;
+        });
+      });
+      html += `</table>`;
+
+      document.getElementById('result').innerHTML = html;
+    });
+
+    // Load from storage only
+    loadTasksFromStorage();
+    loadSlotsFromStorage();
+    loadBlockersFromStorage();
+    loadExceptionsFromStorage();
+  </script>
+</body>
+</html>
