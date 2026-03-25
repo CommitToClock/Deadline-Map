@@ -140,7 +140,10 @@
     function schedule(tasks, phases, exceptions) {
         const plan = [];
         const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-        const daysLong = { 'MON': 'Montag', 'TUE': 'Dienstag', 'WED': 'Mittwoch', 'THU': 'Donnerstag', 'FRI': 'Freitag', 'SAT': 'Samstag', 'SUN': 'Sonntag' };
+        const daysLong = { 
+            'mon': 'Montag', 'tue': 'Dienstag', 'wed': 'Mittwoch', 
+            'thu': 'Donnerstag', 'fri': 'Freitag', 'sat': 'Samstag', 'sun': 'Sonntag' 
+        }
         
         // Sortierung: Deadline zuerst
         const sortedTasks = [...tasks].sort((a,b) => new Date(a.deadline) - new Date(b.deadline) || a.importance - b.importance);
@@ -149,19 +152,53 @@
         if(sortedTasks.length === 0) return [];
         const latestDeadline = new Date(Math.max(...sortedTasks.map(t => new Date(t.deadline))));
 
-        // Kalender bauen
+        // Kalender bauen - mit Ausnahmetag-Handling
         const calendar = [];
         for(let d = new Date(today); d <= latestDeadline; d.setDate(d.getDate() + 1)){
             const dateStr = d.toISOString().slice(0,10);
             const dayKey = dayKeys[d.getDay()];
 
+            // Skip wenn innerhalb Ausnahmebereich
             if(exceptions.some(e => dateStr >= e.dateFrom && dateStr <= e.dateTo)) continue;
 
-            const activePhase = phases.find(p => dateStr >= p.start && dateStr <= p.end);
+            // Finde aktive Phase
+            let activePhase = null;
+            
+            // Check 1: Liegt Datum direkt in Phase?
+            activePhase = phases.find(p => dateStr >= p.start && dateStr <= p.end);
+            
+            // Check 2: Liegt Datum nach Phase, aber Phase läuft über Ausnahmetag?
+            if(!activePhase){
+                for(const phase of phases){
+                    for(const exc of exceptions){
+                        // Wenn Phase vor Ausnahme liegt UND Ausnahme innerhalb Phase liegt
+                        if(phase.start <= exc.dateFrom && phase.end >= exc.dateTo){
+                            // Berechne: wie viele Ausnahmetage in Phase?
+                            let exceptionDays = 0;
+                            let tempDate = new Date(exc.dateFrom);
+                            while(tempDate <= new Date(exc.dateTo)){
+                                exceptionDays++;
+                                tempDate.setDate(tempDate.getDate() + 1);
+                            }
+                            // Verlängere Phase um Ausnahmetage
+                            const extendedEnd = new Date(phase.end);
+                            extendedEnd.setDate(extendedEnd.getDate() + exceptionDays);
+                            const extendedEndStr = extendedEnd.toISOString().slice(0,10);
+                            
+                            if(dateStr >= phase.start && dateStr <= extendedEndStr){
+                                activePhase = phase;
+                                break;
+                            }
+                        }
+                    }
+                    if(activePhase) break;
+                }
+            }
+            
             if(activePhase && activePhase[dayKey] > 0) {
                 calendar.push({
                     date: dateStr,
-                    dayLabel: daysLong[dayKey.toUpperCase()],
+                    dayLabel: daysLong[dayKey],
                     remaining: activePhase[dayKey] * 60
                 });
             }
@@ -223,7 +260,7 @@
             const rowStyle = isOverdue ? 'style="background:#fff0f0; color:#b22222;"' : '';
             
             html += `<tr ${rowStyle}>
-                <td style="padding:8px; text-align:center;">${isOverdue ? '<strong>ZUSATZ</strong>' : formatDate(item.date)}</td>
+                <td style="padding:8px; text-align:center;">${isOverdue ? '<strong>Defizit</strong>' : formatDate(item.date)}</td>
                 <td style="padding:8px; text-align:center;">${isOverdue ? '-' : item.dayLabel}</td>
                 <td style="padding:8px;">${item.title} ${isOverdue ? '<br><small>(Muss zusätzlich eingeplant werden)</small>' : ''}</td>
                 <td style="padding:8px; text-align:center;">${(item.minutes/60).toFixed(2)}h</td>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lernplan & Kapazitäts-Check</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 1.5rem; background: #f5f8ff; }
+    h1, h2 { color: #1f3b7c; }
+    .warn { color: #b22222; font-weight: bold; }
+    .ok { color: #2a7f2a; }
+    .block { margin-bottom: .4rem; }
+  </style>
+</head>
+<body>
+  <h1>Lern-Häppchen & Kapazitäts-Check</h1>
+
+  <div>
+    <h2>Aufgaben</h2>
+    <button id="add-task">Aufgabe hinzufügen</button>
+    <div id="tasks"></div>
+
+    <h2>Freie Zeitfenster</h2>
+    <button id="add-slot">Slot hinzufügen</button>
+    <div id="slots"></div>
+  </div>
+
+  <button id="run-schedule">Schedule erstellen</button>
+  <div id="result"></div>
+
+  <script>
+    function splitIntoBlocks(task, maxBlock=45){
+      const blocks=[];
+      let remaining=task.minutes;
+      while(remaining>0){
+        const chunk=Math.min(maxBlock, remaining);
+        blocks.push({ taskId:task.id, title:task.title, minutes:chunk });
+        remaining -= chunk;
+      }
+      return blocks;
+    }
+
+    function minuteLabel(totalMinutes){
+      const hh = Math.floor(totalMinutes/60);
+      const mm = totalMinutes%60;
+      return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    }
+
+    function schedule(tasks, slots){
+      const free = slots.map(s => ({
+        ...s,
+        free: Math.round(s.hours * 60),
+        cursor: 8*60,
+      }));
+      const plan=[]
+      for(const task of [...tasks].sort((a,b)=> new Date(a.deadline)-new Date(b.deadline) || b.priority-a.priority)){
+        const blocks = splitIntoBlocks(task);
+        for(const block of blocks){
+          const slot = free.find(s=>s.free>=block.minutes);
+          if(!slot){ plan.push({...block, status:'unassigned'}); continue; }
+          plan.push({
+            ...block,
+            status:'assigned',
+            slotStart: `${slot.day} ${minuteLabel(slot.cursor)}`,
+            slotEnd: `${slot.day} ${minuteLabel(slot.cursor + block.minutes)}`,
+          });
+          slot.cursor += block.minutes;
+          slot.free -= block.minutes;
+        }
+      }
+      return plan;
+    }
+
+    function capacityCheck(tasks, slots){
+      const need = tasks.reduce((s,t)=>s+t.minutes,0);
+      const av=slots.reduce((s,slt)=>s+Math.round(slt.hours*60),0);
+      return { need, av, ok: av>=need, diff: Math.abs(av-need) };
+    }
+
+    function createTaskRow(data={title:'',minutes:60,deadline:'2026-03-22',priority:1}){
+      const wrapper = document.createElement('div');
+      wrapper.className='task-row';
+      wrapper.innerHTML = `
+        <input class='task-title' placeholder='Name' value='${data.title}' />
+        <input class='task-minutes' type='number' min='1' value='${data.minutes}' style='width:70px' />
+        <input class='task-deadline' type='date' value='${data.deadline}' />
+        <input class='task-priority' type='number' min='1' max='5' value='${data.priority}' style='width:50px' />
+        <button class='delete-task'>✕</button>
+      `;
+      wrapper.querySelector('.delete-task').addEventListener('click',()=>{
+        wrapper.remove();
+        saveTasksToStorage();
+      });
+      return wrapper;
+    }
+
+    function createSlotRow(data={day:'Montag', hours:2}){
+      const wrapper = document.createElement('div');
+      wrapper.className='slot-row';
+      wrapper.innerHTML = `
+        <select class='slot-day' style='width:120px'>
+          <option value='Montag' ${data.day==='Montag'?'selected':''}>Montag</option>
+          <option value='Dienstag' ${data.day==='Dienstag'?'selected':''}>Dienstag</option>
+          <option value='Mittwoch' ${data.day==='Mittwoch'?'selected':''}>Mittwoch</option>
+          <option value='Donnerstag' ${data.day==='Donnerstag'?'selected':''}>Donnerstag</option>
+          <option value='Freitag' ${data.day==='Freitag'?'selected':''}>Freitag</option>
+          <option value='Samstag' ${data.day==='Samstag'?'selected':''}>Samstag</option>
+          <option value='Sonntag' ${data.day==='Sonntag'?'selected':''}>Sonntag</option>
+        </select>
+        <input class='slot-hours' type='number' min='0.25' step='0.25' value='${data.hours}' style='width:70px' />
+        <span>Stunden</span>
+        <button class='delete-slot'>✕</button>
+      `;
+      wrapper.querySelector('.delete-slot').addEventListener('click',()=>{
+        wrapper.remove();
+        saveSlotsToStorage();
+      });
+      return wrapper;
+    }
+
+    function createExceptionRow(data={date:'2026-03-22', description:'Ganztagsausflug'}){
+      const wrapper = document.createElement('div');
+      wrapper.className='exception-row';
+      wrapper.innerHTML = `
+        <input class='exception-date' type='date' value='${data.date}' style='width:120px' />
+        <input class='exception-description' placeholder='Beschreibung' value='${data.description}' style='width:200px' />
+        <button class='delete-exception'>✕</button>
+      `;
+      wrapper.querySelector('.delete-exception').addEventListener('click',()=>{
+        wrapper.remove();
+        saveExceptionsToStorage();
+      });
+      return wrapper;
+    }
+
+    function getTasksFromUI(){
+      return [...document.querySelectorAll('.task-row')].map((row, i)=>({
+        id:i+1,
+        title: row.querySelector('.task-title').value || 'Aufgabe',
+        minutes: Number(row.querySelector('.task-minutes').value) || 1,
+        deadline: row.querySelector('.task-deadline').value || new Date().toISOString().slice(0,10),
+        priority: Number(row.querySelector('.task-priority').value) || 1,
+      }));
+    }
+
+    function getSlotsFromUI(){
+      return [...document.querySelectorAll('.slot-row')].map(row=>({
+        day: row.querySelector('.slot-day').value || 'Tag',
+        hours: Number(row.querySelector('.slot-hours').value) || 0,
+      })).filter(s=>s.hours > 0);
+    }
+
+    function saveTasksToStorage(){
+      const tasks = getTasksFromUI();
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasksFromStorage(){
+      const stored = localStorage.getItem('tasks');
+      if(stored){
+        const tasks = JSON.parse(stored);
+        tasks.forEach(task => document.getElementById('tasks').appendChild(createTaskRow(task)));
+      }
+    }
+
+    function saveSlotsToStorage(){
+      const slots = getSlotsFromUI();
+      localStorage.setItem('slots', JSON.stringify(slots));
+    }
+
+    function loadSlotsFromStorage(){
+      const stored = localStorage.getItem('slots');
+      if(stored){
+        const slots = JSON.parse(stored);
+        slots.forEach(slot => document.getElementById('slots').appendChild(createSlotRow(slot)));
+      }
+    }
+
+    document.getElementById('add-task').addEventListener('click',()=>{
+      document.getElementById('tasks').appendChild(createTaskRow());
+      saveTasksToStorage();
+    });
+
+    document.getElementById('add-slot').addEventListener('click',()=>{
+      document.getElementById('slots').appendChild(createSlotRow());
+      saveSlotsToStorage();
+    });
+
+    document.getElementById('run-schedule').addEventListener('click',()=>{
+      const tasks = getTasksFromUI();
+      const slots = getSlotsFromUI();
+
+      const c = capacityCheck(tasks, slots);
+      let html = '';
+      html += `<h2>Kapazitäts-Check</h2>`;
+      html += `<p>${c.ok ? '<span class="ok">Genug Zeit vorhanden ✅</span>' : '<span class="warn">Nicht genug Zeit ⛔</span>'}</p>`;
+      html += `<p>Verfügbar: ${c.av} min, Benötigt: ${c.need} min, Differenz: ${c.diff} min</p>`;
+
+      const plan = schedule(tasks, slots);
+      html += `<h2>Geplanter Schedule</h2>`;
+      plan.forEach(item => {
+        html += `<div class="block">${item.title} – ${item.minutes} min – ${item.status}`;
+        if(item.status==='assigned') html += ` (${item.slotStart} bis ${item.slotEnd})`;
+        if(item.status==='unassigned') html += ` (kein Zeitfenster)`;
+        html += `</div>`;
+      });
+
+      document.getElementById('result').innerHTML = html;
+    });
+
+    // Load from storage or set defaults
+    loadTasksFromStorage();
+    loadSlotsFromStorage();
+    if(!localStorage.getItem('tasks') || JSON.parse(localStorage.getItem('tasks')).length === 0){
+      document.getElementById('tasks').appendChild(createTaskRow({title:'Mathe-Übungen', minutes:130, deadline:'2026-03-22', priority:1}));
+      document.getElementById('tasks').appendChild(createTaskRow({title:'Biologie Referat', minutes:90, deadline:'2026-03-21', priority:2}));
+      document.getElementById('tasks').appendChild(createTaskRow({title:'Englisch Vokabeln', minutes:50, deadline:'2026-03-23', priority:3}));
+      saveTasksToStorage();
+    }
+    if(!localStorage.getItem('slots') || JSON.parse(localStorage.getItem('slots')).length === 0){
+      document.getElementById('slots').appendChild(createSlotRow({day:'Montag', hours:2}));
+      document.getElementById('slots').appendChild(createSlotRow({day:'Dienstag', hours:2}));
+      document.getElementById('slots').appendChild(createSlotRow({day:'Mittwoch', hours:2}));
+      document.getElementById('slots').appendChild(createSlotRow({day:'Donnerstag', hours:2}));
+      saveSlotsToStorage();
+    }
+  </script>
+</body>
+</html>
