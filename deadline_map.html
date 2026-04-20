@@ -5,32 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lernplan & Kapazitäts-Check</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 1.5rem; background: #f5f8ff; }
-    h1, h2 { color: #1f3b7c; }
+    :root {
+      --bg-color: #f5f8ff;
+      --card-bg: #fff;
+      --text-color: #1f3b7c;
+      --border-color: #ddd;
+      --shadow: rgba(0,0,0,0.1);
+    }
+    .dark {
+      --bg-color: #1a1a1a;
+      --card-bg: #2a2a2a;
+      --text-color: #e0e0e0;
+      --border-color: #444;
+      --shadow: rgba(0,0,0,0.3);
+    }
+    body { font-family: Arial, sans-serif; margin: 1.5rem; background: var(--bg-color); color: var(--text-color); transition: background 0.3s, color 0.3s; }
+    h1, h2, h3, h4 { color: var(--text-color); }
     .warn { color: #b22222; font-weight: bold; }
     .ok { color: #2a7f2a; }
     .task-row, .slot-row, .exception-row { 
       margin-bottom: 0.5rem; 
       padding: 10px; 
-      background: #fff; 
-      border-radius: 4px; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+      background: var(--card-bg); 
+      border-radius: 12px; 
+      box-shadow: 0 2px 8px var(--shadow); 
+      transition: box-shadow 0.3s;
     }
-    input, select { padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
-    button { cursor: pointer; padding: 6px 12px; border-radius: 4px; border: none; }
+    input, select { padding: 5px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); }
+    button { cursor: pointer; padding: 6px 12px; border-radius: 8px; border: none; transition: background 0.3s; }
     .btn-add { background: #1f3b7c; color: white; margin-top: 5px; }
     .btn-run { background: #2a7f2a; color: white; font-size: 1.1rem; width: 100%; margin-top: 20px; }
     .btn-del { background: #ff4d4d; color: white; float: right; }
-    #result { margin-top: 30px; padding: 20px; background: white; border-radius: 8px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .overdue { color: #ff4500; font-weight: bold; background: #fff0f0; }
+    #result { margin-top: 30px; padding: 20px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 2px 8px var(--shadow); }
+    .progress-item { margin: 10px 0; padding: 10px; background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 4px var(--shadow); }
+    .progress-bar { width: 100%; height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #2a7f2a; border-radius: 6px; transition: width 0.3s; }
+    .calendar { display: flex; flex-wrap: wrap; gap: 15px; }
+    .day-card { background: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px var(--shadow); width: 220px; transition: transform 0.2s; }
+    .day-card:hover { transform: translateY(-2px); }
+    .day-blocks { display: flex; flex-direction: column; gap: 4px; }
+    .task-block { padding: 8px; border-radius: 8px; color: white; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity 0.3s; }
+    .task-block:hover { opacity: 0.8; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 20px; }
+    .month-header { grid-column: 1 / -1; text-align: center; font-size: 1.5em; margin-bottom: 10px; }
+    .weekdays { display: contents; font-weight: bold; }
+    .week { display: contents; }
+    .day { border: 1px solid var(--border-color); padding: 5px; min-height: 100px; background: var(--card-bg); }
+    .empty { background: transparent; border: none; }
+    .day-cell { border: 1px solid var(--border-color); padding: 5px; min-height: 100px; position: relative; background: var(--card-bg); border-radius: 8px; transition: background 0.3s, border-color 0.3s; }
+    .day-cell.heat-low { background: #e8f5e9; }
+    .day-cell.heat-medium { background: #fff9c4; }
+    .day-cell.heat-high { background: #ffe0b2; }
+    .day-cell.heat-overloaded { background: #ffebee; border-color: #d32f2f; }
+    .day-number { font-weight: bold; margin-bottom: 5px; }
+    .deadline-flag { position: absolute; top: 5px; right: 5px; font-size: 1.5em; }
+    .task-block[draggable] { cursor: move; }
+    .calendar-views { display: flex; flex-direction: column; gap: 20px; }
+    .capacity-summary { margin: 15px 0; padding: 12px; border-radius: 12px; background: rgba(34, 197, 94, 0.08); }
+    .capacity-summary.warning { background: rgba(244, 67, 54, 0.12); }
+    .capacity-summary ul { margin: 8px 0 0; padding-left: 20px; }
+    .capacity-summary li { margin-bottom: 4px; }
+    .capacity-label { font-weight: bold; }
+    .free-buckets { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+    .free-bucket { flex: 1 1 150px; padding: 14px; border-radius: 14px; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid rgba(31,59,124,0.12); }
+    .free-bucket .bucket-title { font-size: 0.9rem; color: #1f3b7c; margin-bottom: 8px; }
+    .free-bucket .bucket-value { font-size: 1.35rem; font-weight: bold; color: #2a7f2a; }
+    .free-bucket.overloaded { border-color: #d32f2f; background: #fff0f0; }
+    .free-bucket.overloaded .bucket-value { color: #d32f2f; }
+    .day-card.heat-high { border: 1px solid #ff9800; }
+    .day-card.heat-overloaded { border: 2px solid #d32f2f; }
+    .day-card.heat-low { border: 1px solid #4caf50; }
+    .day-card.heat-medium { border: 1px solid #fbc02d; }
   </style>
 </head>
 <body>
 
   <h1>Lernplan & Kapazitäts-Check</h1>
+  <button id="toggle-dark" class="btn-add" style="float:right;">🌙 Dark Mode</button>
 
   <section>
     <h2>1. Aufgaben (Deadlines)</h2>
@@ -124,6 +175,26 @@
       div.innerHTML = html + `<button class="btn-del" onclick="this.parentElement.remove()">✕</button>`;
       document.getElementById(containerId).appendChild(div);
     }
+    function buildSlotMap(slots) {
+      const map = {};
+      slots.forEach(s => { map[s.day] = Math.round(s.hours * 60); });
+      return map;
+    }
+    function getDayCapacity(dateStr) {
+      const dayNames = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+      const d = new Date(dateStr);
+      if (window.exceptions.some(e => dateStr >= e.from && dateStr <= e.to)) return 0;
+      return window.slotMap[dayNames[d.getDay()]] || 0;
+    }
+    function getHeatClass(utilization) {
+      if (utilization > 1) return 'heat-overloaded';
+      if (utilization >= 0.8) return 'heat-high';
+      if (utilization >= 0.5) return 'heat-medium';
+      return 'heat-low';
+    }
+    function formatHours(minutes) {
+      return `${(minutes / 60).toFixed(2)}h`;
+    }
 
     // Task Row mit Step 0.25 und Default 0
     document.getElementById('add-task').onclick = () => createRow('tasks', `
@@ -131,7 +202,7 @@
       <input class="t-hrs" type="number" step="0.25" value="0" style="width:55px"> Stunden
       |Deadline:
       <input class="t-dl" type="date">
-      Prio <input class="t-imp" type="number" value="1" style="width:35px">
+      Prio <input class="t-imp" type="number" value="1" min="1" max="5" style="width:35px">
     `);
 
     // Slot Row mit Step 0.25 und Default 0
@@ -147,7 +218,190 @@
       <input class="e-from" type="date"> bis <input class="e-to" type="date">
     `);
 
+    // Dark Mode Toggle
+    document.getElementById('toggle-dark').onclick = () => {
+      document.body.classList.toggle('dark');
+      const btn = document.getElementById('toggle-dark');
+      btn.textContent = document.body.classList.contains('dark') ? '☀️ Light Mode' : '🌙 Dark Mode';
+    };
+
     // --- AUSFÜHRUNG ---
+    let currentView = 'list';
+
+    function renderResults(results, tasks) {
+      const totalNeeded = tasks.reduce((sum, t) => sum + t.minutes, 0);
+      const totalAssigned = results.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0);
+
+      let html = `<h3>Check: ${totalAssigned >= totalNeeded ? '<span class="ok">Zeit reicht aus ✅</span>' : '<span class="warn">Zeitmangel! ⛔</span>'}</h3>`;
+      html += `<p>Benötigt: ${(totalNeeded/60).toFixed(2)}h | Geplant: ${(totalAssigned/60).toFixed(2)}h</p>`;
+      
+      // Progress section
+      html += '<h3>Aufgaben Fortschritt</h3>';
+      const taskProgress = {};
+      results.forEach(r => {
+        if (r.status === 'assigned') {
+          taskProgress[r.title] = (taskProgress[r.title] || 0) + r.minutes;
+        }
+      });
+      tasks.forEach(task => {
+        const assigned = taskProgress[task.title] || 0;
+        const total = task.minutes;
+        const percent = Math.min((assigned / total) * 100, 100);
+        html += `<div class="progress-item">
+          <div>${task.title}: ${(assigned/60).toFixed(2)} von ${(total/60).toFixed(2)} Stunden geplant</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
+        </div>`;
+      });
+      
+      // Overdue
+      const overdue = results.filter(r => r.status === 'overdue');
+      if (overdue.length > 0) {
+        html += '<h3>Überfällige Aufgaben</h3>';
+        overdue.forEach(r => {
+          html += `<div class="overdue">${r.title}: ${(r.minutes/60).toFixed(2)}h nicht zugewiesen</div>`;
+        });
+      }
+      
+      // Zeitplan
+      html += '<h3>Zeitplan</h3>';
+      html += '<button id="toggle-view">Kalenderansicht</button>';
+      
+      // List view
+      html += '<div id="list-view" style="display:block;">';
+      const dayPlans = {};
+      results.forEach(r => {
+        if (r.status === 'assigned') {
+          if (!dayPlans[r.date]) dayPlans[r.date] = [];
+          dayPlans[r.date].push(r);
+        }
+      });
+      html += '<div class="calendar">';
+      Object.keys(dayPlans).sort().forEach(date => {
+        const dayAssignments = dayPlans[date];
+        const dayName = dayAssignments[0].dayName;
+        html += `<div class="day-card">
+          <h4>${formatDateDE(date)} - ${dayName}</h4>
+          <div class="day-blocks">`;
+        dayAssignments.forEach(task => {
+          const height = (task.minutes / 60) * 30; // 30px per hour
+          const prio = parseInt(task.importance);
+          const color = prio === 1 ? '#ff6b6b' : prio === 2 ? '#ffa726' : prio === 3 ? '#ffeb3b' : '#4caf50';
+          html += `<div class="task-block" style="height:${height}px; background:${color};" title="${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${task.importance}">
+            ${task.title} ${(task.minutes/60).toFixed(2)}h
+          </div>`;
+        });
+        html += '</div></div>';
+      });
+      html += '</div></div>';
+      
+      // Calendar view
+      html += '<div id="calendar-view" style="display:none;">';
+      if (tasks.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const minDate = new Date(Math.min(...tasks.map(t => new Date(t.deadline))));
+        const maxDate = new Date(Math.max(...tasks.map(t => new Date(t.deadline))));
+        // Optional: Extend maxDate by 7 days to show free slots after deadlines
+        maxDate.setDate(maxDate.getDate() + 7);
+        const dayStats = {};
+        // Initialize all days from today to maxDate with capacity and used: 0
+        for (let current = new Date(today); current <= maxDate; current.setDate(current.getDate() + 1)) {
+          const dateStr = toLocalISO(new Date(current));
+          dayStats[dateStr] = { used: 0, capacity: getDayCapacity(dateStr) };
+        }
+        // Subtract used time from assigned results
+        results.filter(r => r.status === 'assigned').forEach(r => {
+          if (dayStats[r.date]) {
+            dayStats[r.date].used += r.minutes;
+          }
+        });
+
+        const unusedDays = Object.entries(dayStats)
+          .filter(([, stat]) => stat.capacity > 0 && stat.capacity - stat.used > 0)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .slice(0, 5);
+        const overloadDays = Object.entries(dayStats).filter(([, stat]) => stat.capacity > 0 && stat.used > stat.capacity);
+
+        html += '<div class="capacity-summary' + (overloadDays.length ? ' warning' : '') + '">';
+        if (overloadDays.length) {
+          html += '<div class="capacity-label">Überlastung:</div> Es gibt Tage mit mehr als 100% Planung. Bitte verschiebe Aufgaben oder erhöhe Kapazitäten.</div>';
+        } else {
+          html += '<div class="capacity-label">Nächste Freie Zeitfenster</div>';
+        }
+        html += '<div class="capacity-summary"><div class="capacity-label">Nächste Freie Zeitfenster</div>';
+        if (unusedDays.length) {
+          html += '<div class="free-buckets">';
+          unusedDays.forEach(([date, stat]) => {
+            const isOverloaded = stat.used > stat.capacity;
+            html += `<div class="free-bucket${isOverloaded ? ' overloaded' : ''}">`;
+            html += `<div class="bucket-title">${formatDateDE(date)}</div>`;
+            html += `<div class="bucket-value">${formatHours(stat.capacity - stat.used)} frei</div>`;
+            html += `</div>`;
+          });
+          html += '</div>';
+        } else {
+          html += '<p>Keine freien Kapazitäten im ausgewählten Zeitraum gefunden.</p>';
+        }
+        html += '</div>';
+
+        html += '<div class="calendar-views">';
+        for (let current = new Date(minDate.getFullYear(), minDate.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
+          const month = new Date(current);
+          const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+          const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay(); // 0=Sun
+          html += '<div class="calendar-grid">';
+          html += '<div class="month-header">' + month.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'}) + '</div>';
+          html += '<div class="weekdays"><div>So</div><div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div></div>';
+          let day = 1;
+          for (let week = 0; week < 6; week++) {
+            html += '<div class="week">';
+            for (let wd = 0; wd < 7; wd++) {
+              if ((week === 0 && wd < firstDay) || day > daysInMonth) {
+                html += '<div class="day empty"></div>';
+              } else {
+                const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), day));
+                const dayTasks = dayPlans[dateStr] || [];
+                const stat = dayStats[dateStr] || { used: 0, capacity: getDayCapacity(dateStr) };
+                const utilization = stat.capacity > 0 ? stat.used / stat.capacity : 0;
+                const heatClass = getHeatClass(utilization);
+                const deadlineTasks = tasks.filter(t => t.deadline === dateStr);
+                html += `<div class="day-cell ${heatClass}" data-date="${dateStr}" ondrop="drop(event)" ondragover="allowDrop(event)" title="Nutzung: ${Math.round(utilization * 100)}% | Verplant: ${formatHours(stat.used)} / ${formatHours(stat.capacity)}">`;
+                html += `<div class="day-number">${day}</div>`;
+                if (deadlineTasks.length) html += `<div class="deadline-flag">${deadlineTasks.map(t => t.title).join(', ')}</div>`;
+                dayTasks.forEach(task => {
+                  const height = (task.minutes / 60) * 20; // smaller für grid
+                  const prio = parseInt(task.importance);
+                  const color = prio === 1 ? '#ff6b6b' : prio === 2 ? '#ffa726' : prio === 3 ? '#ffeb3b' : '#4caf50';
+                  html += `<div class="task-block" draggable="true" ondragstart="drag(event)" data-title="${task.title}" data-minutes="${task.minutes}" data-importance="${task.importance}" style="height:${height}px; background:${color};" title="${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${task.importance}">`;
+                  html += `${task.title} ${(task.minutes/60).toFixed(2)}h`;
+                  html += '</div>';
+                });
+                html += '</div>';
+                day++;
+              }
+            }
+            html += '</div>';
+            if (day > daysInMonth) break;
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+      
+      document.getElementById('result').innerHTML = html;
+      window.plan = results;
+      window.tasks = tasks;
+      
+      // Toggle view
+      document.getElementById('toggle-view').onclick = () => {
+        currentView = currentView === 'list' ? 'calendar' : 'list';
+        document.getElementById('list-view').style.display = currentView === 'list' ? 'block' : 'none';
+        document.getElementById('calendar-view').style.display = currentView === 'calendar' ? 'block' : 'none';
+        document.getElementById('toggle-view').textContent = currentView === 'list' ? 'Kalenderansicht' : 'Listenansicht';
+      };
+    }
+
     document.getElementById('run-schedule').onclick = () => {
       const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
         title: r.querySelector('.t-title').value,
@@ -159,7 +413,7 @@
       const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
         day: r.querySelector('.s-day').value,
         hours: r.querySelector('.s-hrs').value
-      })).filter(s => s.hours > 0); // Nur Slots mit Zeit berücksichtigen
+      })).filter(s => s.hours > 0);
 
       const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
         from: r.querySelector('.e-from').value,
@@ -169,26 +423,41 @@
       if (tasks.length === 0) return alert("Bitte Aufgaben eingeben!");
 
       const results = schedule(tasks, slots, exceptions);
-      const totalNeeded = tasks.reduce((sum, t) => sum + t.minutes, 0);
-      const totalAssigned = results.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0);
-
-      let html = `<h3>Check: ${totalAssigned >= totalNeeded ? '<span class="ok">Zeit reicht aus ✅</span>' : '<span class="warn">Zeitmangel! ⛔</span>'}</h3>`;
-      html += `<p>Benötigt: ${(totalNeeded/60).toFixed(2)}h | Geplant: ${(totalAssigned/60).toFixed(2)}h</p>`;
-      
-      html += `<table><tr><th>Datum</th><th>Tag</th><th>Aufgabe</th><th>Dauer</th><th>Prio</th></tr>`;
-      results.forEach(r => {
-        const isOverdue = r.status === 'overdue';
-        html += `<tr class="${isOverdue ? 'overdue' : ''}">
-          <td>${isOverdue ? 'NICHT MACHBAR' : formatDateDE(r.date)}</td>
-          <td>${isOverdue ? '' : r.dayName}</td>
-          <td>${r.title}</td>
-          <td>${(r.minutes/60).toFixed(2)}h</td>
-          <td>${r.importance || '-'}</td>
-        </tr>`;
-      });
-      html += `</table>`;
-      document.getElementById('result').innerHTML = html;
+      window.slotMap = buildSlotMap(slots);
+      window.exceptions = exceptions;
+      renderResults(results, tasks);
     };
+
+    // Drag & Drop
+    function allowDrop(ev) {
+      ev.preventDefault();
+    }
+
+    function drag(ev) {
+      ev.dataTransfer.setData("text", ev.target.dataset.title);
+    }
+
+    function drop(ev) {
+      ev.preventDefault();
+      const title = ev.dataTransfer.getData("text");
+      const targetDate = ev.target.closest('.day-cell').dataset.date;
+      const dragged = document.querySelector(`[data-title="${title}"]`);
+      if (dragged && targetDate) {
+        const item = window.plan.find(p => p.title === title && p.status === 'assigned');
+        if (item) {
+          if (new Date(targetDate) > new Date(item.deadline)) {
+            alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
+            return;
+          }
+          // Move the element
+          ev.target.closest('.day-cell').appendChild(dragged);
+          // Update plan
+          item.date = targetDate;
+          // Re-render to update numbers
+          renderResults(window.plan, window.tasks);
+        }
+      }
+    }
 
   </script>
 </body>
