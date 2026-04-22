@@ -81,7 +81,13 @@
 <body>
 
   <h1>Lernplan & Kapazitäts-Check</h1>
-  <button id="toggle-dark" class="btn-add" style="float:right;">🌙 Dark Mode</button>
+  <div style="float:right; display:flex; gap:8px;">
+    <button id="save-data" class="btn-add">💾 Speichern</button>
+    <button id="load-data" class="btn-add">📂 Laden</button>
+    <button id="export-data" class="btn-add">📥 Exportieren</button>
+    <button id="import-data" class="btn-add">📤 Importieren</button>
+    <button id="toggle-dark" class="btn-add">🌙 Dark Mode</button>
+  </div>
 
   <section>
     <h2>1. Aufgaben (Deadlines)</h2>
@@ -106,6 +112,138 @@
   <div id="result"></div>
 
   <script>
+    // --- LOCALSTORAGE FUNKTIONEN ---
+    function saveToLocalStorage() {
+      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
+        title: r.querySelector('.t-title').value,
+        hours: r.querySelector('.t-hrs').value,
+        deadline: r.querySelector('.t-dl').value,
+        importance: r.querySelector('.t-imp').value
+      }));
+      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
+        day: r.querySelector('.s-day').value,
+        hours: r.querySelector('.s-hrs').value
+      }));
+      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
+        name: r.querySelector('.e-name').value,
+        from: r.querySelector('.e-from').value,
+        to: r.querySelector('.e-to').value
+      }));
+      localStorage.setItem('lernplan_tasks', JSON.stringify(tasks));
+      localStorage.setItem('lernplan_slots', JSON.stringify(slots));
+      localStorage.setItem('lernplan_exceptions', JSON.stringify(exceptions));
+      alert('✅ Daten gespeichert!');
+    }
+
+    function loadFromLocalStorage() {
+      const tasks = JSON.parse(localStorage.getItem('lernplan_tasks') || '[]');
+      const slots = JSON.parse(localStorage.getItem('lernplan_slots') || '[]');
+      const exceptions = JSON.parse(localStorage.getItem('lernplan_exceptions') || '[]');
+      
+      document.getElementById('tasks').innerHTML = '';
+      document.getElementById('slots').innerHTML = '';
+      document.getElementById('exceptions').innerHTML = '';
+      
+      tasks.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'task-row';
+        div.innerHTML = '<input class="t-title" placeholder="Aufgabe" style="width:140px" value="' + t.title + '"><input class="t-hrs" type="number" step="0.25" value="' + t.hours + '" style="width:55px"> Stunden |Deadline: <input class="t-dl" type="date" value="' + t.deadline + '"> Prio <input class="t-imp" type="number" value="' + t.importance + '" min="1" max="5" style="width:35px"><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+        document.getElementById('tasks').appendChild(div);
+      });
+      
+      slots.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'slot-row';
+        const dayOptions = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d => '<option ' + (d === s.day ? 'selected' : '') + '>' + d + '</option>').join('');
+        div.innerHTML = '<select class="s-day">' + dayOptions + '</select> <input class="s-hrs" type="number" step="0.25" value="' + s.hours + '" style="width:55px"> Stunden/Tag <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+        document.getElementById('slots').appendChild(div);
+      });
+      
+      exceptions.forEach(e => {
+        const div = document.createElement('div');
+        div.className = 'exception-row';
+        div.innerHTML = '<input class="e-name" placeholder="Grund" style="width:100px" value="' + e.name + '"> <input class="e-from" type="date" value="' + e.from + '"> bis <input class="e-to" type="date" value="' + e.to + '"> <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+        document.getElementById('exceptions').appendChild(div);
+      });
+      
+      alert('✅ Daten geladen!');
+    }
+
+    function exportData() {
+      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
+        title: r.querySelector('.t-title').value,
+        hours: r.querySelector('.t-hrs').value,
+        deadline: r.querySelector('.t-dl').value,
+        importance: r.querySelector('.t-imp').value
+      }));
+      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
+        day: r.querySelector('.s-day').value,
+        hours: r.querySelector('.s-hrs').value
+      }));
+      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
+        name: r.querySelector('.e-name').value,
+        from: r.querySelector('.e-from').value,
+        to: r.querySelector('.e-to').value
+      }));
+      
+      const data = { tasks: tasks, slots: slots, exceptions: exceptions, exportedAt: new Date().toLocaleString('de-DE') };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'lernplan_' + new Date().toISOString().split('T')[0] + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('✅ Daten exportiert!');
+    }
+
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            document.getElementById('tasks').innerHTML = '';
+            document.getElementById('slots').innerHTML = '';
+            document.getElementById('exceptions').innerHTML = '';
+            
+            data.tasks.forEach(t => {
+              const div = document.createElement('div');
+              div.className = 'task-row';
+              div.innerHTML = '<input class="t-title" placeholder="Aufgabe" style="width:140px" value="' + t.title + '"><input class="t-hrs" type="number" step="0.25" value="' + t.hours + '" style="width:55px"> Stunden |Deadline: <input class="t-dl" type="date" value="' + t.deadline + '"> Prio <input class="t-imp" type="number" value="' + t.importance + '" min="1" max="5" style="width:35px"><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+              document.getElementById('tasks').appendChild(div);
+            });
+            
+            data.slots.forEach(s => {
+              const div = document.createElement('div');
+              div.className = 'slot-row';
+              const dayOptions = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d => '<option ' + (d === s.day ? 'selected' : '') + '>' + d + '</option>').join('');
+              div.innerHTML = '<select class="s-day">' + dayOptions + '</select> <input class="s-hrs" type="number" step="0.25" value="' + s.hours + '" style="width:55px"> Stunden/Tag <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+              document.getElementById('slots').appendChild(div);
+            });
+            
+            data.exceptions.forEach(e => {
+              const div = document.createElement('div');
+              div.className = 'exception-row';
+              div.innerHTML = '<input class="e-name" placeholder="Grund" style="width:100px" value="' + e.name + '"> <input class="e-from" type="date" value="' + e.from + '"> bis <input class="e-to" type="date" value="' + e.to + '"> <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
+              document.getElementById('exceptions').appendChild(div);
+            });
+            
+            alert('✅ Daten importiert!');
+          } catch (error) {
+            alert('❌ Fehler beim Importieren: ' + error.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
     // --- HILFSFUNKTIONEN ---
     const toLocalISO = (date) => date.toLocaleDateString('sv-SE'); 
     const formatDateDE = (ds) => ds.split('-').reverse().join('.');
@@ -218,12 +356,26 @@
       <input class="e-from" type="date"> bis <input class="e-to" type="date">
     `);
 
-    // Dark Mode Toggle
+    // Button Event Listener
     document.getElementById('toggle-dark').onclick = () => {
       document.body.classList.toggle('dark');
       const btn = document.getElementById('toggle-dark');
       btn.textContent = document.body.classList.contains('dark') ? '☀️ Light Mode' : '🌙 Dark Mode';
     };
+
+    document.getElementById('save-data').onclick = saveToLocalStorage;
+    document.getElementById('load-data').onclick = loadFromLocalStorage;
+    document.getElementById('export-data').onclick = exportData;
+    document.getElementById('import-data').onclick = importData;
+
+    // Beim Laden der Seite: Versuche, gespeicherte Daten zu laden
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('lernplan_tasks');
+      if (saved) {
+        const loadQuestion = confirm('Gespeicherte Daten gefunden! Möchtest du sie laden?');
+        if (loadQuestion) loadFromLocalStorage();
+      }
+    });
 
     // --- AUSFÜHRUNG ---
     let currentView = 'list';
@@ -401,6 +553,34 @@
         document.getElementById('toggle-view').textContent = currentView === 'list' ? 'Kalenderansicht' : 'Listenansicht';
       };
     }
+
+    // Auto-Save triggern
+    function enableAutoSave() {
+      document.addEventListener('change', () => {
+        localStorage.setItem('lernplan_autosave_tasks', JSON.stringify(
+          [...document.querySelectorAll('.task-row')].map(r => ({
+            title: r.querySelector('.t-title').value,
+            hours: r.querySelector('.t-hrs').value,
+            deadline: r.querySelector('.t-dl').value,
+            importance: r.querySelector('.t-imp').value
+          }))
+        ));
+        localStorage.setItem('lernplan_autosave_slots', JSON.stringify(
+          [...document.querySelectorAll('.slot-row')].map(r => ({
+            day: r.querySelector('.s-day').value,
+            hours: r.querySelector('.s-hrs').value
+          }))
+        ));
+        localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify(
+          [...document.querySelectorAll('.exception-row')].map(r => ({
+            name: r.querySelector('.e-name').value,
+            from: r.querySelector('.e-from').value,
+            to: r.querySelector('.e-to').value
+          }))
+        ));
+      });
+    }
+    enableAutoSave();
 
     document.getElementById('run-schedule').onclick = () => {
       const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
