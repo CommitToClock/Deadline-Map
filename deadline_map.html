@@ -302,7 +302,7 @@
         const minDate = new Date(Math.min(...tasks.map(t => new Date(t.deadline))));
         const maxDate = new Date(Math.max(...tasks.map(t => new Date(t.deadline))));
         // Optional: Extend maxDate by 7 days to show free slots after deadlines
-        maxDate.setDate(maxDate.getDate() + 7);
+        maxDate.setDate(maxDate.getDate());
         const dayStats = {};
         // Initialize all days from today to maxDate with capacity and used: 0
         for (let current = new Date(today); current <= maxDate; current.setDate(current.getDate() + 1)) {
