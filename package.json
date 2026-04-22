@@ -1,0 +1,19 @@
+{
+  "name": "deadline-map",
+  "version": "1.0.0",
+  "description": "Lernplan und Kapazitäts-Check Tool",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["deadline", "lernplan", "kapazität"],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": "14.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
