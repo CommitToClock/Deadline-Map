@@ -345,6 +345,10 @@
       return getStandardCapacity(dateStr);
     }
 
+    function formatHours(minutes) {
+      return (minutes / 60).toFixed(2) + 'h';
+    }
+
     // --- LOGIK: ZEITPLANUNG ---
     function schedule(tasks, slots, exceptions) {
       const plan = [];
@@ -381,6 +385,7 @@
           const alloc = Math.min(needed, day.remaining);
           plan.push({
             date: day.date,
+            deadline: task.deadline,
             dayName: day.day,
             title: task.title,
             minutes: alloc,
@@ -391,7 +396,7 @@
           needed -= alloc;
         }
         if (needed > 0) {
-          plan.push({ title: task.title, minutes: needed, status: 'overdue' });
+          plan.push({ title: task.title, minutes: needed, deadline: task.deadline, status: 'overdue' });
         }
       });
 
@@ -504,7 +509,7 @@
     });
 
     // --- AUSFÜHRUNG ---
-    let currentView = 'list';
+    let currentView = 'calendar';
 
     function renderResults(results, tasks) {
       const totalNeeded = tasks.reduce((sum, t) => sum + t.minutes, 0);
@@ -542,39 +547,17 @@
       
       // Zeitplan
       html += '<h3>Zeitplan</h3>';
-      html += '<button id="toggle-view">Kalenderansicht</button>';
-      
-      // List view
-      html += '<div id="list-view" style="display:block;">';
-      const dayPlans = {};
-      results.forEach(r => {
-        if (r.status === 'assigned') {
-          if (!dayPlans[r.date]) dayPlans[r.date] = [];
-          dayPlans[r.date].push(r);
-        }
-      });
-      html += '<div class="calendar">';
-      Object.keys(dayPlans).sort().forEach(date => {
-        const dayAssignments = dayPlans[date];
-        const dayName = dayAssignments[0].dayName;
-        html += `<div class="day-card">
-          <h4>${formatDateDE(date)} - ${dayName}</h4>
-          <div class="day-blocks">`;
-        dayAssignments.forEach(task => {
-          const height = (task.minutes / 60) * 30; // 30px per hour
-          const prio = parseInt(task.importance);
-          const color = prio === 1 ? '#ff6b6b' : prio === 2 ? '#ffa726' : prio === 3 ? '#ffeb3b' : '#4caf50';
-          html += `<div class="task-block" style="height:${height}px; background:${color};" title="${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${task.importance}">
-            ${task.title} ${(task.minutes/60).toFixed(2)}h
-          </div>`;
-        });
-        html += '</div></div>';
-      });
-      html += '</div></div>';
       
       // Calendar view
-      html += '<div id="calendar-view" style="display:none;">';
+      html += '<div id="calendar-view" style="display:block;">';
       if (tasks.length > 0) {
+        const dayPlans = {};
+        results.forEach(r => {
+          if (r.status === 'assigned') {
+            if (!dayPlans[r.date]) dayPlans[r.date] = [];
+            dayPlans[r.date].push(r);
+          }
+        });
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const minDate = new Date(Math.min(...tasks.map(t => new Date(t.deadline))));
@@ -626,10 +609,10 @@
         for (let current = new Date(minDate.getFullYear(), minDate.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
           const month = new Date(current);
           const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-          const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay(); // 0=Sun
+          const firstDay = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7; // Montag als 0
           html += '<div class="calendar-grid">';
           html += '<div class="month-header">' + month.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'}) + '</div>';
-          html += '<div class="weekdays"><div>So</div><div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div></div>';
+          html += '<div class="weekdays"><div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div><div>So</div></div>';
           let day = 1;
           for (let week = 0; week < 6; week++) {
             html += '<div class="week">';
@@ -646,13 +629,15 @@
                 const deadlineTasks = tasks.filter(t => t.deadline === dateStr);
                 html += `<div class="day-cell ${heatClass}${overrideClass}" data-date="${dateStr}" ondrop="drop(event)" ondragover="allowDrop(event)" title="Nutzung: ${Math.round(utilization * 100)}% | Verplant: ${formatHours(stat.used)} / ${formatHours(stat.capacity)}">`;
                 html += `<div class="day-number">${day}</div>`;
-                if (deadlineTasks.length) html += `<div class="deadline-flag">${deadlineTasks.map(t => t.title).join(', ')}</div>`;
+                if (deadlineTasks.length) html += `<div class="deadline-flag">${deadlineTasks.map(t => '🏁' + t.title).join(', ')}</div>`;
                 dayTasks.forEach(task => {
                   const height = (task.minutes / 60) * 20; // smaller für grid
                   const prio = parseInt(task.importance);
                   const color = prio === 1 ? '#ff6b6b' : prio === 2 ? '#ffa726' : prio === 3 ? '#ffeb3b' : '#4caf50';
+                  const isDeadlineDay = (task.date === task.deadline);
+                  const deadlineBadge = isDeadlineDay ? '<span style="font-size:1.1em; margin-left:5px;" title="Deadline!">🏁</span>' : '';
                   html += `<div class="task-block" draggable="true" ondragstart="drag(event)" data-title="${task.title}" data-minutes="${task.minutes}" data-importance="${task.importance}" style="height:${height}px; background:${color};" title="${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${task.importance}">`;
-                  html += `${task.title} ${(task.minutes/60).toFixed(2)}h`;
+                  html += `${task.title} ${(task.minutes/60).toFixed(2)}h ${deadlineBadge}`;
                   html += '</div>';
                 });
                 html += '</div>';
@@ -671,14 +656,6 @@
       document.getElementById('result').innerHTML = html;
       window.plan = results;
       window.tasks = tasks;
-      
-      // Toggle view
-      document.getElementById('toggle-view').onclick = () => {
-        currentView = currentView === 'list' ? 'calendar' : 'list';
-        document.getElementById('list-view').style.display = currentView === 'list' ? 'block' : 'none';
-        document.getElementById('calendar-view').style.display = currentView === 'calendar' ? 'block' : 'none';
-        document.getElementById('toggle-view').textContent = currentView === 'list' ? 'Kalenderansicht' : 'Listenansicht';
-      };
     }
 
     // Auto-Save triggern
@@ -748,10 +725,13 @@
 
       if (tasks.length === 0) return alert("Bitte Aufgaben eingeben!");
 
-      const results = schedule(tasks, slots, exceptions);
+      // --- HIER DIE KORREKTUR: Globals VOR schedule setzen ---
       window.slotMap = buildSlotMap(slots);
       window.exceptions = exceptions;
       window.overrides = overrides;
+      // -------------------------------------------------------
+
+      const results = schedule(tasks, slots, exceptions);
       renderResults(results, tasks);
     };
 
