@@ -80,6 +80,29 @@
     .day-card.heat-low { border: 1px solid #4caf50; }
     .day-card.heat-medium { border: 1px solid #fbc02d; }
     .day-cell.override { border-left: 4px solid #2196f3; }
+
+    .steps-grid {
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: 1fr;
+      margin-bottom: 1.5rem;
+    }
+    .step-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      padding: 1.2rem;
+      box-shadow: 0 2px 12px var(--shadow);
+      max-width: 720px;
+      width: 100%;
+    }
+    .step-card.left { justify-self: start; }
+    .step-card.right { justify-self: end; }
+
+    @media (min-width: 900px) {
+      .steps-grid { grid-template-columns: repeat(2, minmax(320px, 1fr)); }
+      .step-card { max-width: none; }
+    }
   </style>
 </head>
 <body>
@@ -93,29 +116,31 @@
     <button id="toggle-dark" class="btn-add">🌙 Dark Mode</button>
   </div>
 
-  <section>
-    <h2>1. Aufgaben (Deadlines)</h2>
-    <div id="tasks"></div>
-    <button id="add-task" class="btn-add">+ Aufgabe hinzufügen</button>
-  </section>
+  <div class="steps-grid">
+    <section class="step-card left">
+      <h2>1. Aufgaben (Deadlines)</h2>
+      <div id="tasks"></div>
+      <button id="add-task" class="btn-add">+ Aufgabe hinzufügen</button>
+    </section>
 
-  <section>
-    <h2>2. Wöchentliche Zeitfenster</h2>
-    <div id="slots"></div>
-    <button id="add-slot" class="btn-add">+ Slot hinzufügen</button>
-  </section>
+    <section class="step-card right">
+      <h2>2. Wöchentliche Zeitfenster</h2>
+      <div id="slots"></div>
+      <button id="add-slot" class="btn-add">+ Slot hinzufügen</button>
+    </section>
 
-  <section>
-    <h2>3. Ausnahmetage (Keine Lernzeit)</h2>
-    <div id="exceptions"></div>
-    <button id="add-exception" class="btn-add">+ Ausnahmetag hinzufügen</button>
-  </section>
+    <section class="step-card left">
+      <h2>3. Ausnahmetage (Keine Lernzeit)</h2>
+      <div id="exceptions"></div>
+      <button id="add-exception" class="btn-add">+ Ausnahmetag hinzufügen</button>
+    </section>
 
-  <section>
-    <h2>4. Wöchentliche Overrides</h2>
-    <div id="overrides"></div>
-    <button id="add-override" class="btn-add">+ Override hinzufügen</button>
-  </section>
+    <section class="step-card right">
+      <h2>4. Wöchentliche Overrides</h2>
+      <div id="overrides"></div>
+      <button id="add-override" class="btn-add">+ Override hinzufügen</button>
+    </section>
+  </div>
 
   <button id="run-schedule" class="btn-run">📅 Schedule erstellen</button>
 
@@ -314,6 +339,12 @@
       var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
       var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
       return [d.getUTCFullYear(), weekNo];
+    }
+
+    function getMondayOfCalendarRow(month, weekIndex, firstDay) {
+      const monday = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay);
+      monday.setDate(monday.getDate() + (weekIndex * 7));
+      return monday;
     }
 
     function isException(dateStr) {
@@ -632,14 +663,7 @@
           html += '<div class="weekday-label">Mo</div><div class="weekday-label">Di</div><div class="weekday-label">Mi</div><div class="weekday-label">Do</div><div class="weekday-label">Fr</div><div class="weekday-label">Sa</div><div class="weekday-label">So</div>';
           let day = 1;
           for (let week = 0; week < 6; week++) {
-            // Calculate week number for first Monday of this week row
-            let firstDayOfWeek;
-            if (week === 0) {
-              firstDayOfWeek = new Date(month.getFullYear(), month.getMonth(), 1);
-              firstDayOfWeek.setDate(firstDayOfWeek.getDate() + (firstDay === 0 ? 0 : firstDay - firstDay));
-            } else {
-              firstDayOfWeek = new Date(month.getFullYear(), month.getMonth(), Math.max(1, 1 + (week * 7) - firstDay));
-            }
+            const firstDayOfWeek = getMondayOfCalendarRow(month, week, firstDay);
             const [weekYear, weekNum] = getWeekNumber(firstDayOfWeek);
             html += '<div class="week">';
             html += '<div class="week-number">W' + weekNum + '</div>';

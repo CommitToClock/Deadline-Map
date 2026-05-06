@@ -1,119 +1,234 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 transition-colors">
-    <div class="max-w-7xl mx-auto p-6">
-      <!-- Header -->
-      <div class="flex justify-between items-center mb-8">
-        <h1 class="text-4xl font-bold text-primary dark:text-white">Lernplan & Kapazitäts-Check</h1>
-        <div class="flex gap-2">
-          <button @click="saveData" class="btn-primary btn-sm">💾 Speichern</button>
-          <button @click="loadData" class="btn-primary btn-sm">📂 Laden</button>
-          <button @click="exportData" class="btn-primary btn-sm">📥 Exportieren</button>
-          <button @click="importData" class="btn-primary btn-sm">📤 Importieren</button>
-          <button @click="toggleDarkMode" class="btn-primary btn-sm">{{ darkMode ? '☀️ Light' : '🌙 Dark' }}</button>
-        </div>
-      </div>
-
-      <!-- Tasks Section -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-bold text-primary dark:text-white mb-4">1. Aufgaben (Deadlines)</h2>
-        <div class="space-y-3 mb-4">
-          <div v-for="(task, idx) in tasks" :key="idx" class="card flex gap-4 items-center">
-            <input v-model="task.title" placeholder="Aufgabe" class="input-field flex-1" />
-            <input v-model.number="task.hours" type="number" step="0.25" placeholder="Stunden" class="input-field w-24" />
-            <span class="text-sm font-semibold">Deadline:</span>
-            <input v-model="task.deadline" type="date" class="input-field w-32" />
-            <span class="text-sm font-semibold">Prio</span>
-            <input v-model.number="task.importance" type="number" min="1" max="5" class="input-field w-16" />
-            <button @click="tasks.splice(idx, 1)" class="btn-danger btn-sm">✕</button>
+  <div class="min-h-screen app-shell transition-colors">
+    <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <header class="mb-8">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="eyebrow">Lernplanung</p>
+            <h1 class="page-title">Lernplan & Kapazitaets-Check</h1>
+            <p class="page-subtitle">Plane Aufgaben gegen reale Wochenkapazitaeten und sieh sofort, wo es eng wird.</p>
+          </div>
+          <div class="action-bar">
+            <button @click="saveData" class="btn-secondary btn-sm">Speichern</button>
+            <button @click="loadData" class="btn-secondary btn-sm">Laden</button>
+            <button @click="exportData" class="btn-secondary btn-sm">Export</button>
+            <button @click="importData" class="btn-secondary btn-sm">Import</button>
+            <button @click="toggleDarkMode" class="btn-secondary btn-sm">{{ darkMode ? 'Light' : 'Dark' }}</button>
           </div>
         </div>
-        <button @click="tasks.push({ title: '', hours: 0, deadline: '', importance: 1 })" class="btn-primary">+ Aufgabe hinzufügen</button>
-      </section>
 
-      <!-- Slots Section -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-bold text-primary dark:text-white mb-4">2. Wöchentliche Zeitfenster</h2>
-        <div class="space-y-3 mb-4">
-          <div v-for="(slot, idx) in slots" :key="idx" class="card flex gap-4 items-center">
-            <select v-model="slot.day" class="input-field flex-1">
-              <option v-for="day in weekDays" :key="day" :value="day">{{ day }}</option>
-            </select>
-            <input v-model.number="slot.hours" type="number" step="0.25" placeholder="Stunden" class="input-field w-24" />
-            <span class="text-sm">Stunden/Tag</span>
-            <button @click="slots.splice(idx, 1)" class="btn-danger btn-sm">✕</button>
+        <div class="live-check">
+          <div :class="['live-status', liveCanSchedule ? 'live-status-ok' : 'live-status-warning']">
+            <span>{{ liveStatusText }}</span>
+            <strong>{{ (liveTotalAssigned / 60).toFixed(2) }} / {{ (liveTotalNeeded / 60).toFixed(2) }}h geplant</strong>
           </div>
-        </div>
-        <button @click="slots.push({ day: 'Montag', hours: 0 })" class="btn-primary">+ Slot hinzufügen</button>
-      </section>
-
-      <!-- Exceptions Section -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-bold text-primary dark:text-white mb-4">3. Ausnahmetage (Keine Lernzeit)</h2>
-        <div class="space-y-3 mb-4">
-          <div v-for="(exc, idx) in exceptions" :key="idx" class="card flex gap-4 items-center">
-            <input v-model="exc.name" placeholder="Grund" class="input-field flex-1" />
-            <input v-model="exc.from" type="date" class="input-field w-32" />
-            <span>bis</span>
-            <input v-model="exc.to" type="date" class="input-field w-32" />
-            <button @click="exceptions.splice(idx, 1)" class="btn-danger btn-sm">✕</button>
+          <div class="live-stat-card">
+            <span>Benoetigt</span>
+            <strong>{{ (liveTotalNeeded / 60).toFixed(2) }}h</strong>
           </div>
-        </div>
-        <button @click="exceptions.push({ name: '', from: '', to: '' })" class="btn-primary">+ Ausnahmetag hinzufügen</button>
-      </section>
-
-      <!-- Overrides Section -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-bold text-primary dark:text-white mb-4">4. Wöchentliche Overrides</h2>
-        <div class="space-y-4 mb-4">
-          <div v-for="(override, idx) in overrides" :key="idx" class="card">
-            <div class="flex gap-4 items-center mb-4">
-              <input v-model.number="override.year" type="number" placeholder="Jahr" class="input-field w-20" />
-              <span>KW</span>
-              <input v-model.number="override.week" type="number" min="1" max="53" class="input-field w-20" />
-              <button @click="setAsStandard(idx)" class="btn-success btn-sm flex-1">Als Standard</button>
-              <button @click="overrides.splice(idx, 1)" class="btn-danger btn-sm">✕</button>
+          <div class="live-stat-card">
+            <span>Geplant</span>
+            <strong>{{ (liveTotalAssigned / 60).toFixed(2) }}h</strong>
+          </div>
+          <div class="live-free-card">
+            <span>Freie Zeitfenster</span>
+            <div class="summary-free-list">
+              <span v-for="day in liveUnusedDays.slice(0, 3)" :key="day.date" class="free-slot-chip">
+                <strong>{{ formatDateDE(day.date) }}</strong>
+                <em>{{ (day.capacity / 60).toFixed(1) }}h frei</em>
+              </span>
+              <span v-if="liveUnusedDays.length === 0" class="free-slot-chip free-slot-empty">Keine</span>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div v-for="day in weekDays" :key="day" class="flex flex-col">
-                <label class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ day }}</label>
-                <input 
-                  v-model.number="override.slots[day]" 
-                  type="number" 
-                  step="0.25" 
-                  class="input-field" 
+          </div>
+        </div>
+        <details class="live-progress">
+          <summary>Aufgaben-Fortschritt anzeigen</summary>
+          <div v-if="liveProgressItems.length" class="mt-3 space-y-2">
+            <div v-for="item in liveProgressItems" :key="item.title">
+              <div class="mb-1 flex justify-between gap-3 text-sm">
+                <span class="truncate">{{ item.title }}</span>
+                <span class="font-semibold">{{ (item.assigned / 60).toFixed(2) }} / {{ (item.total / 60).toFixed(2) }}h</span>
+              </div>
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  :style="{ width: item.percent + '%', backgroundColor: item.color }"
                 />
               </div>
             </div>
           </div>
+          <p v-else class="mt-3 text-sm text-slate-500 dark:text-slate-400">Noch keine vollstaendigen Aufgaben eingetragen.</p>
+        </details>
+      </header>
+
+      <main class="layout-grid">
+        <div class="space-y-6">
+          <details class="panel step-details" open>
+            <summary>
+              <div>
+                <p class="eyebrow">Schritt 1</p>
+                <h2>Aufgaben</h2>
+              </div>
+            </summary>
+            <div class="step-content">
+              <div class="section-actions">
+                <button @click="tasks.push({ title: '', hours: 0, deadline: '', importance: 1 })" class="btn-primary btn-sm">+ Aufgabe</button>
+              </div>
+              <div v-if="tasks.length" class="space-y-3">
+                <div v-for="(task, idx) in tasks" :key="idx" class="form-card task-form">
+                  <label class="field field-wide">
+                    <span>Titel</span>
+                    <input v-model="task.title" placeholder="z.B. Mathe Kapitel 4" class="input-field" />
+                  </label>
+                  <label class="field">
+                    <span>Stunden</span>
+                    <input v-model.number="task.hours" type="number" step="0.25" min="0" class="input-field" />
+                  </label>
+                  <label class="field">
+                    <span>Deadline</span>
+                    <input v-model="task.deadline" type="date" class="input-field" />
+                  </label>
+                  <label class="field field-small">
+                    <span>Prio</span>
+                    <input v-model.number="task.importance" type="number" min="1" max="5" class="input-field" />
+                  </label>
+                  <button @click="tasks.splice(idx, 1)" class="icon-danger" aria-label="Aufgabe entfernen">x</button>
+                </div>
+              </div>
+              <p v-else class="empty-state">Noch keine Aufgaben. Fuege deine erste Deadline hinzu.</p>
+            </div>
+          </details>
+
+          <details class="panel step-details" open>
+            <summary>
+              <div>
+                <p class="eyebrow">Schritt 2</p>
+                <h2>Woechentliche Zeitfenster</h2>
+              </div>
+            </summary>
+            <div class="step-content">
+              <div class="section-actions">
+                <button @click="slots.push({ day: 'Montag', hours: 0 })" class="btn-primary btn-sm">+ Slot</button>
+              </div>
+              <div v-if="slots.length" class="slot-grid">
+                <div v-for="(slot, idx) in slots" :key="idx" class="form-card slot-form">
+                  <label class="field">
+                    <span>Tag</span>
+                    <select v-model="slot.day" class="input-field">
+                      <option v-for="day in weekDays" :key="day" :value="day">{{ day }}</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Stunden</span>
+                    <input v-model.number="slot.hours" type="number" step="0.25" min="0" class="input-field" />
+                  </label>
+                  <button @click="slots.splice(idx, 1)" class="icon-danger" aria-label="Slot entfernen">x</button>
+                </div>
+              </div>
+              <p v-else class="empty-state">Lege fest, wann du normalerweise lernen kannst.</p>
+            </div>
+          </details>
+
+          <details class="panel step-details">
+            <summary>
+              <div>
+                <p class="eyebrow">Schritt 3</p>
+                <h2>Ausnahmetage</h2>
+              </div>
+            </summary>
+            <div class="step-content">
+              <div class="section-actions">
+                <button @click="exceptions.push({ name: '', from: '', to: '' })" class="btn-primary btn-sm">+ Ausnahme</button>
+              </div>
+              <div v-if="exceptions.length" class="space-y-3">
+                <div v-for="(exc, idx) in exceptions" :key="idx" class="form-card exception-form">
+                  <label class="field field-wide">
+                    <span>Grund</span>
+                    <input v-model="exc.name" placeholder="z.B. Urlaub" class="input-field" />
+                  </label>
+                  <label class="field">
+                    <span>Von</span>
+                    <input v-model="exc.from" type="date" class="input-field" />
+                  </label>
+                  <label class="field">
+                    <span>Bis</span>
+                    <input v-model="exc.to" type="date" class="input-field" />
+                  </label>
+                  <button @click="exceptions.splice(idx, 1)" class="icon-danger" aria-label="Ausnahme entfernen">x</button>
+                </div>
+              </div>
+              <p v-else class="empty-state">Optional: Tage ohne Lernzeit eintragen.</p>
+            </div>
+          </details>
         </div>
-        <button @click="addOverride" class="btn-primary">+ Override hinzufügen</button>
-      </section>
 
-      <!-- Schedule Button -->
-      <button @click="runSchedule" class="w-full btn-success text-lg py-4 font-bold">📅 Schedule erstellen</button>
+        <aside class="space-y-6">
+          <details class="panel step-details" open>
+            <summary>
+              <div>
+                <p class="eyebrow">Schritt 4</p>
+                <h2>Overrides</h2>
+              </div>
+            </summary>
+            <div class="step-content">
+              <div class="section-actions">
+                <button @click="addOverride" class="btn-primary btn-sm">+ KW</button>
+              </div>
+              <div v-if="overrides.length" class="space-y-4">
+                <div v-for="(override, idx) in overrides" :key="idx" class="override-card">
+                  <div class="override-head">
+                    <label class="field">
+                      <span>Jahr</span>
+                      <input v-model.number="override.year" type="number" class="input-field" />
+                    </label>
+                    <label class="field">
+                      <span>KW</span>
+                      <input v-model.number="override.week" type="number" min="1" max="53" class="input-field" />
+                    </label>
+                    <button @click="overrides.splice(idx, 1)" class="icon-danger" aria-label="Override entfernen">x</button>
+                  </div>
+                  <div class="override-days">
+                    <label v-for="day in weekDays" :key="day" class="field compact-field">
+                      <span>{{ day.slice(0, 2) }}</span>
+                      <input v-model.number="override.slots[day]" type="number" step="0.25" min="0" class="input-field" />
+                    </label>
+                  </div>
+                  <button @click="setAsStandard(idx)" class="btn-secondary w-full mt-3">Als Standard uebernehmen</button>
+                </div>
+              </div>
+              <p v-else class="empty-state">Nutze Overrides fuer Pruefungswochen, Urlaub oder einmalig andere Kapazitaeten.</p>
+            </div>
+          </details>
 
-      <!-- Results Section -->
-      <div v-if="results.length > 0" class="mt-12">
-        <ResultsSection 
-          :results="results" 
+          <section class="panel action-panel">
+            <div class="step-content">
+              <h2>Plan erstellen</h2>
+              <p class="helper-text">Der Plan nutzt deine Kapazitaeten bis zur jeweiligen Deadline. Aufgaben werden nach Deadline sortiert.</p>
+              <button @click="runSchedule" class="w-full btn-success text-base py-3 font-bold">Schedule erstellen</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <section v-if="results.length > 0" ref="resultsSection" class="mt-10 scroll-mt-6">
+        <ResultsSection
+          :results="results"
           :tasks="computedTasks"
           :exceptions="exceptions"
           :capacityByDate="capacityByDate"
           :darkMode="darkMode"
         />
-      </div>
+      </section>
     </div>
 
-    <!-- File Input for Import -->
     <input ref="fileInput" type="file" accept=".json" class="hidden" @change="handleImport" />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import ResultsSection from './components/ResultsSection.vue'
 
-// Reactive State
 const darkMode = ref(false)
 const tasks = ref([])
 const slots = ref([])
@@ -121,41 +236,35 @@ const exceptions = ref([])
 const overrides = ref([])
 const results = ref([])
 const fileInput = ref(null)
+const resultsSection = ref(null)
 
 const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+const formatDateDE = (ds) => ds.split('-').reverse().join('.')
 
-// Computed Properties
-const computedTasks = computed(() => 
+const computedTasks = computed(() =>
   tasks.value
     .filter(t => t.title && t.deadline)
-    .map(t => ({ ...t, minutes: t.hours * 60 }))
+    .map(t => ({ ...t, minutes: (Number(t.hours) || 0) * 60 }))
 )
 
 const slotMap = computed(() => {
   const map = {}
-  slots.value.forEach(s => { map[s.day] = Math.round(s.hours * 60) })
+  slots.value.forEach(s => { map[s.day] = Math.round((Number(s.hours) || 0) * 60) })
   return map
 })
 
-// Helper Functions
 const toLocalISO = (date) => date.toLocaleDateString('sv-SE')
-const formatDateDE = (ds) => ds.split('-').reverse().join('.')
 
 const getWeekNumber = (d) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
   return [d.getUTCFullYear(), weekNo]
 }
 
-const isException = (dateStr) => 
+const isException = (dateStr) =>
   exceptions.value.some(e => dateStr >= e.from && dateStr <= e.to)
-
-const getExceptionName = (dateStr) => {
-  const exception = exceptions.value.find(e => dateStr >= e.from && dateStr <= e.to)
-  return exception ? exception.name : ''
-}
 
 const hasOverride = (dateStr) => {
   const [year, week] = getWeekNumber(new Date(dateStr))
@@ -166,15 +275,13 @@ const getOverrideCapacity = (dateStr) => {
   const [year, week] = getWeekNumber(new Date(dateStr))
   const override = overrides.value.find(o => o.year === year && o.week === week)
   const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-  const d = new Date(dateStr)
-  const dayName = dayNames[d.getDay()]
-  return override && override.slots[dayName] ? Math.round(override.slots[dayName] * 60) : 0
+  const dayName = dayNames[new Date(dateStr).getDay()]
+  return override && override.slots[dayName] ? Math.round((Number(override.slots[dayName]) || 0) * 60) : 0
 }
 
 const getStandardCapacity = (dateStr) => {
   const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-  const d = new Date(dateStr)
-  const dayName = dayNames[d.getDay()]
+  const dayName = dayNames[new Date(dateStr).getDay()]
   return slotMap.value[dayName] || 0
 }
 
@@ -200,36 +307,32 @@ const capacityByDate = computed(() => {
   return capacities
 })
 
-// Main Schedule Function
 const schedule = (tasksToSchedule) => {
   const plan = []
   const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-  
   const sortedTasks = [...tasksToSchedule].sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-  
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
   const maxDL = new Date(Math.max(...tasksToSchedule.map(t => new Date(t.deadline))))
-  
+
   const calendar = []
   for (let d = new Date(today); d <= maxDL; d.setDate(d.getDate() + 1)) {
     const dStr = toLocalISO(d)
-    const dName = dayNames[d.getDay()]
     const capacity = getCapacityForDay(dStr)
-    
+
     if (capacity > 0) {
-      calendar.push({ date: dStr, day: dName, remaining: capacity })
+      calendar.push({ date: dStr, day: dayNames[d.getDay()], remaining: capacity })
     }
   }
-  
+
   sortedTasks.forEach(task => {
     let needed = task.minutes
-    for (let day of calendar) {
+    for (const day of calendar) {
       if (needed <= 0) break
       if (day.remaining <= 0) continue
       if (new Date(day.date) >= new Date(task.deadline)) continue
-      
+
       const alloc = Math.min(needed, day.remaining)
       plan.push({
         date: day.date,
@@ -243,29 +346,92 @@ const schedule = (tasksToSchedule) => {
       day.remaining -= alloc
       needed -= alloc
     }
+
     if (needed > 0) {
       plan.push({ title: task.title, minutes: needed, status: 'overdue' })
     }
   })
-  
+
   return plan.sort((a, b) => {
     if (!a.date && !b.date) return 0
     if (!a.date) return 1
     if (!b.date) return -1
-    if (a.date !== b.date) {
-      return a.date > b.date ? 1 : -1
-    }
+    if (a.date !== b.date) return a.date > b.date ? 1 : -1
     return parseInt(b.importance) - parseInt(a.importance)
   })
 }
 
-// Methods
+const liveResults = computed(() => {
+  if (computedTasks.value.length === 0) return []
+  return schedule(computedTasks.value)
+})
+
+const liveTotalNeeded = computed(() =>
+  computedTasks.value.reduce((sum, task) => sum + task.minutes, 0)
+)
+
+const liveTotalAssigned = computed(() =>
+  liveResults.value
+    .filter(item => item.status === 'assigned')
+    .reduce((sum, item) => sum + item.minutes, 0)
+)
+
+const liveCanSchedule = computed(() =>
+  computedTasks.value.length > 0 && liveTotalAssigned.value >= liveTotalNeeded.value
+)
+
+const liveStatusText = computed(() => {
+  if (computedTasks.value.length === 0) return 'Noch keine Aufgaben'
+  return liveCanSchedule.value ? 'Zeit reicht aus' : 'Zeitmangel'
+})
+
+const liveProgressItems = computed(() =>
+  computedTasks.value.map(task => {
+    const assigned = liveResults.value
+      .filter(item => item.status === 'assigned' && item.title === task.title)
+      .reduce((sum, item) => sum + item.minutes, 0)
+    const percentRaw = task.minutes > 0 ? (assigned / task.minutes) * 100 : 0
+    const percent = Math.min(percentRaw, 100)
+    const color = percent === 100 ? '#16a34a' : percent >= 50 ? '#ea580c' : '#dc2626'
+
+    return {
+      title: task.title,
+      assigned,
+      total: task.minutes,
+      percent,
+      color
+    }
+  })
+)
+
+const liveUnusedDays = computed(() => {
+  if (computedTasks.value.length === 0) return []
+
+  const usedByDate = {}
+  liveResults.value
+    .filter(item => item.status === 'assigned')
+    .forEach(item => {
+      usedByDate[item.date] = (usedByDate[item.date] || 0) + item.minutes
+    })
+
+  return Object.entries(capacityByDate.value)
+    .map(([date, capacity]) => ({
+      date,
+      capacity: Math.max(capacity - (usedByDate[date] || 0), 0)
+    }))
+    .filter(day => day.capacity > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+})
+
 const runSchedule = () => {
   if (computedTasks.value.length === 0) {
     alert('Bitte Aufgaben eingeben!')
     return
   }
   results.value = schedule(computedTasks.value)
+  nextTick(() => {
+    resultsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 const saveData = () => {
@@ -276,7 +442,7 @@ const saveData = () => {
     overrides: overrides.value
   }
   localStorage.setItem('lernplan_data', JSON.stringify(data))
-  alert('✅ Daten gespeichert!')
+  alert('Daten gespeichert!')
 }
 
 const loadData = () => {
@@ -287,9 +453,9 @@ const loadData = () => {
     slots.value = data.slots || []
     exceptions.value = data.exceptions || []
     overrides.value = data.overrides || []
-    alert('✅ Daten geladen!')
+    alert('Daten geladen!')
   } else {
-    alert('❌ Keine gespeicherten Daten gefunden!')
+    alert('Keine gespeicherten Daten gefunden!')
   }
 }
 
@@ -309,7 +475,7 @@ const exportData = () => {
   a.download = 'lernplan_' + new Date().toISOString().split('T')[0] + '.json'
   a.click()
   URL.revokeObjectURL(url)
-  alert('✅ Daten exportiert!')
+  alert('Daten exportiert!')
 }
 
 const importData = () => {
@@ -319,7 +485,7 @@ const importData = () => {
 const handleImport = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
-  
+
   const reader = new FileReader()
   reader.onload = (event) => {
     try {
@@ -328,9 +494,9 @@ const handleImport = (e) => {
       slots.value = data.slots || []
       exceptions.value = data.exceptions || []
       overrides.value = data.overrides || []
-      alert('✅ Daten importiert!')
+      alert('Daten importiert!')
     } catch (error) {
-      alert('❌ Fehler beim Importieren: ' + error.message)
+      alert('Fehler beim Importieren: ' + error.message)
     }
   }
   reader.readAsText(file)
@@ -338,25 +504,17 @@ const handleImport = (e) => {
 
 const toggleDarkMode = () => {
   darkMode.value = !darkMode.value
-  if (darkMode.value) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
+  document.documentElement.classList.toggle('dark', darkMode.value)
 }
 
 const setAsStandard = (idx) => {
   const override = overrides.value[idx]
-  const newSlots = []
-  weekDays.forEach(day => {
-    newSlots.push({
-      day,
-      hours: override.slots[day] || 0
-    })
-  })
-  slots.value = newSlots
+  slots.value = weekDays.map(day => ({
+    day,
+    hours: override.slots[day] || 0
+  }))
   overrides.value.splice(idx, 1)
-  alert('✅ Override als Standard gesetzt!')
+  alert('Override als Standard gesetzt!')
 }
 
 const addOverride = () => {
@@ -364,7 +522,7 @@ const addOverride = () => {
   const currentWeek = getWeekNumber(new Date())[1]
   const slotsObj = {}
   weekDays.forEach(day => { slotsObj[day] = 0 })
-  
+
   overrides.value.push({
     year: currentYear,
     week: currentWeek,
@@ -372,12 +530,10 @@ const addOverride = () => {
   })
 }
 
-// Load data on mount
-import { onMounted } from 'vue'
 onMounted(() => {
   const saved = localStorage.getItem('lernplan_data')
   if (saved) {
-    const loadQuestion = confirm('Gespeicherte Daten gefunden! Möchtest du sie laden?')
+    const loadQuestion = confirm('Gespeicherte Daten gefunden! Moechtest du sie laden?')
     if (loadQuestion) {
       const data = JSON.parse(saved)
       tasks.value = data.tasks || []
@@ -388,6 +544,3 @@ onMounted(() => {
   }
 })
 </script>
-
-<style scoped>
-</style>
