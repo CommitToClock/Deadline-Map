@@ -385,7 +385,7 @@
         for (let day of calendar) {
           if (needed <= 0) break;
           if (day.remaining <= 0) continue;
-          if (new Date(day.date) > new Date(task.deadline)) continue; 
+          if (new Date(day.date) >= new Date(task.deadline)) continue; 
 
           const alloc = Math.min(needed, day.remaining);
           plan.push({
