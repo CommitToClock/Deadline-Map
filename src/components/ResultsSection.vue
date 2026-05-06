@@ -1,104 +1,98 @@
 <template>
-  <div class="space-y-8">
-    <!-- Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div :class="['card', totalAssigned >= totalNeeded ? 'bg-green-50 dark:bg-green-900' : 'bg-red-50 dark:bg-red-900']">
-        <h3 class="text-xl font-bold mb-2">{{ totalAssigned >= totalNeeded ? '✅ Zeit reicht aus!' : '⛔ Zeitmangel!' }}</h3>
-        <p class="text-gray-600 dark:text-gray-300">
-          Benötigt: <span class="font-semibold">{{ (totalNeeded/60).toFixed(2) }}h</span> | 
-          Geplant: <span class="font-semibold">{{ (totalAssigned/60).toFixed(2) }}h</span>
-        </p>
+  <div class="space-y-4">
+    <div class="schedule-summary">
+      <div :class="['summary-status', totalAssigned >= totalNeeded ? 'summary-status-ok' : 'summary-status-warning']">
+        {{ totalAssigned >= totalNeeded ? 'Zeit reicht aus' : 'Zeitmangel' }}
       </div>
-
-      <div class="card">
-        <h3 class="text-lg font-bold mb-4">Aufgaben Fortschritt</h3>
-        <div class="space-y-2">
-          <div v-for="task in tasks" :key="task.title">
-            <div class="flex justify-between text-sm mb-1">
-              <span>{{ task.title }}</span>
-              <span class="font-semibold">{{ (getTaskAssigned(task.title)/60).toFixed(2) }} / {{ (task.minutes/60).toFixed(2) }}h</span>
-            </div>
-            <div class="progress-bar">
-              <div 
-                class="progress-fill" 
-                :style="{ 
-                  width: Math.min((getTaskAssigned(task.title) / task.minutes) * 100, 100) + '%',
-                  backgroundColor: getProgressColor(task.title)
-                }"
-              />
-            </div>
-          </div>
+      <div class="summary-stat">
+        <span>Benoetigt</span>
+        <strong>{{ (totalNeeded / 60).toFixed(2) }}h</strong>
+      </div>
+      <div class="summary-stat">
+        <span>Geplant</span>
+        <strong>{{ (totalAssigned / 60).toFixed(2) }}h</strong>
+      </div>
+      <div class="summary-free">
+        <span class="summary-free-label">Freie Zeitfenster</span>
+        <div class="summary-free-list">
+          <span v-for="day in unusedDaysMap.slice(0, 4)" :key="day.date" class="free-slot-chip">
+            <strong>{{ formatDateDE(day.date) }}</strong>
+            <em>{{ (day.capacity / 60).toFixed(1) }}h frei</em>
+          </span>
+          <span v-if="unusedDaysMap.length === 0" class="free-slot-chip free-slot-empty">Keine</span>
         </div>
       </div>
     </div>
 
-    <!-- Overdue Tasks -->
-    <div v-if="overdueItems.length > 0" class="card bg-red-50 dark:bg-red-900 border-l-4 border-red-600">
-      <h3 class="text-lg font-bold mb-3 text-red-700 dark:text-red-300">Überfällige Aufgaben</h3>
-      <ul class="space-y-2">
-        <li v-for="item in overdueItems" :key="item.title" class="text-red-600 dark:text-red-300">
-          {{ item.title }}: {{ (item.minutes/60).toFixed(2) }}h nicht zugewiesen
+    <details class="compact-details">
+      <summary>Aufgaben-Fortschritt anzeigen</summary>
+      <div class="mt-3 space-y-2">
+        <div v-for="task in tasks" :key="task.title">
+          <div class="mb-1 flex justify-between gap-3 text-sm">
+            <span class="truncate">{{ task.title }}</span>
+            <span class="font-semibold">{{ (getTaskAssigned(task.title) / 60).toFixed(2) }} / {{ (task.minutes / 60).toFixed(2) }}h</span>
+          </div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :style="{
+                width: Math.min((getTaskAssigned(task.title) / task.minutes) * 100, 100) + '%',
+                backgroundColor: getProgressColor(task.title)
+              }"
+            />
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div v-if="overdueItems.length > 0" class="compact-warning">
+      <strong>Ueberfaellige Aufgaben:</strong>
+      <ul>
+        <li v-for="item in overdueItems" :key="item.title">
+          {{ item.title }}: {{ (item.minutes / 60).toFixed(2) }}h nicht zugewiesen
         </li>
       </ul>
     </div>
 
-    <!-- Free Capacity Info -->
-    <div class="card">
-      <h3 class="text-lg font-bold mb-4">Nächste Freie Zeitfenster</h3>
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div v-for="day in unusedDaysMap.slice(0, 5)" :key="day.date" class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800">
-          <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ formatDateDE(day.date) }}</div>
-          <div class="text-2xl font-bold text-green-600 dark:text-green-300">{{ (day.capacity/60).toFixed(1) }}h</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Calendar View -->
-    <div class="space-y-6">
-      <h3 class="text-2xl font-bold text-primary dark:text-white">Zeitplan</h3>
+    <div class="space-y-4">
+      <h3 class="text-xl font-bold text-primary dark:text-white">Zeitplan</h3>
       <div v-for="monthCal in monthCalendars" :key="monthCal.monthKey" class="card">
-        <h4 class="text-xl font-bold mb-6 text-center text-primary dark:text-white">{{ monthCal.monthName }}</h4>
-        
-        <!-- Calendar Grid -->
+        <h4 class="mb-4 text-center text-lg font-bold text-primary dark:text-white">{{ monthCal.monthName }}</h4>
+
         <div class="overflow-x-auto">
           <table class="w-full border-collapse">
             <thead>
               <tr>
-                <th class="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700 font-semibold text-center w-12">KW</th>
-                <th v-for="day in weekDaysShort" :key="day" class="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700 font-semibold text-center">{{ day }}</th>
+                <th class="w-12 border border-gray-300 bg-gray-100 p-2 text-center font-semibold dark:border-gray-600 dark:bg-gray-700">KW</th>
+                <th v-for="day in weekDaysShort" :key="day" class="border border-gray-300 bg-gray-100 p-2 text-center font-semibold dark:border-gray-600 dark:bg-gray-700">{{ day }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="week in monthCal.weeks" :key="week.weekNum">
-                <td class="border border-gray-300 dark:border-gray-600 p-2 text-center font-semibold bg-gray-50 dark:bg-gray-800 text-sm">W{{ week.weekNum }}</td>
-                <td v-for="day in week.days" :key="day.dateStr" :class="getCellClass(day)" class="border border-gray-300 dark:border-gray-600 p-3 min-h-40 align-top relative">
-                  <!-- Day number -->
-                  <div v-if="day.dateStr" class="font-bold text-lg mb-2">{{ day.dayNum }}</div>
-                  
-                  <!-- Exception badge -->
-                  <div v-if="day.exceptionName" class="text-xs bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 px-2 py-1 rounded mb-2 inline-block">
+              <tr v-for="week in monthCal.weeks" :key="week.weekKey">
+                <td class="border border-gray-300 bg-gray-50 p-2 text-center text-sm font-semibold dark:border-gray-600 dark:bg-gray-800">W{{ week.weekNum }}</td>
+                <td v-for="day in week.days" :key="day.dateStr" :class="getCellClass(day)" class="relative border border-gray-300 p-3 align-top dark:border-gray-600">
+                  <div v-if="day.dateStr" class="mb-2 text-lg font-bold">{{ day.dayNum }}</div>
+
+                  <div v-if="day.exceptionName" class="mb-2 inline-block rounded bg-purple-200 px-2 py-1 text-xs text-purple-900 dark:bg-purple-700 dark:text-purple-100">
                     {{ day.exceptionName }}
                   </div>
-                  
-                  <!-- Deadline flag -->
-                  <div v-if="day.deadlineTasks?.length > 0" class="text-xs font-bold text-red-600 dark:text-red-400 mb-2">
-                    🏁 {{ day.deadlineTasks.map(t => t.title).join(', ') }}
+
+                  <div v-if="day.deadlineTasks?.length > 0" class="mb-2 text-xs font-bold text-red-600 dark:text-red-400">
+                    Deadline: {{ day.deadlineTasks.map(t => t.title).join(', ') }}
                   </div>
-                  
-                  <!-- Task blocks -->
+
                   <div class="space-y-1">
-                    <div 
-                      v-for="task in day.tasks" 
-                      :key="task.title" 
+                    <div
+                      v-for="task in day.tasks"
+                      :key="task.title"
                       :style="{ backgroundColor: getColorForPriority(task.importance) }"
-                      class="text-white text-xs p-1 rounded truncate"
-                      :title="`${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${task.importance}`"
+                      class="truncate rounded p-1 text-xs text-white"
+                      :title="`${task.title} ${(task.minutes / 60).toFixed(2)}h Prio ${task.importance}`"
                     >
-                      {{ task.title }} {{ (task.minutes/60).toFixed(1) }}h {{ day.dateStr === task.deadline ? '🏁' : '' }}
+                      {{ task.title }} {{ (task.minutes / 60).toFixed(1) }}h {{ day.dateStr === task.deadline ? 'Deadline' : '' }}
                     </div>
                   </div>
-                  
-                  <!-- Capacity info -->
+
                   <div v-if="day.capacity > 0" class="absolute bottom-1 right-1 text-xs text-gray-500 dark:text-gray-400">
                     {{ Math.round((day.used / day.capacity) * 100) }}%
                   </div>
@@ -124,7 +118,6 @@ const props = defineProps({
 })
 
 const weekDaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 
 const toLocalISO = (date) => date.toLocaleDateString('sv-SE')
 const formatDateDE = (ds) => ds.split('-').reverse().join('.')
@@ -132,47 +125,46 @@ const formatDateDE = (ds) => ds.split('-').reverse().join('.')
 const getWeekNumber = (d) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
   return [d.getUTCFullYear(), weekNo]
 }
 
-// Computed
 const totalNeeded = computed(() => props.tasks?.reduce((sum, t) => sum + t.minutes, 0) ?? 0)
-const totalAssigned = computed(() => 
+const totalAssigned = computed(() =>
   props.results?.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0) ?? 0
 )
 
-const overdueItems = computed(() => 
+const overdueItems = computed(() =>
   props.results?.filter(r => r.status === 'overdue') ?? []
 )
 
 const dayStats = computed(() => {
   const stats = {}
   if (props.tasks.length === 0) return stats
-  
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const taskDates = props.tasks.map(t => new Date(t.deadline))
   const maxDate = new Date(Math.max(...taskDates))
-  
+
   for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
     const dateStr = toLocalISO(new Date(d))
     stats[dateStr] = { used: 0, capacity: props.capacityByDate[dateStr] || 0 }
   }
-  
+
   props.results.filter(r => r.status === 'assigned').forEach(r => {
     if (stats[r.date]) {
       stats[r.date].used += r.minutes
     }
   })
-  
+
   return stats
 })
 
 const unusedDaysMap = computed(() => {
   const unused = Object.entries(dayStats.value)
-    .filter(([date, stat]) => stat.capacity > 0 && stat.capacity - stat.used > 0)
+    .filter(([, stat]) => stat.capacity > 0 && stat.capacity - stat.used > 0)
     .sort((a, b) => a[0].localeCompare(b[0]))
   return unused.map(([date, stat]) => ({
     date,
@@ -193,12 +185,12 @@ const dayPlans = computed(() => {
 
 const monthCalendars = computed(() => {
   if (props.tasks.length === 0) return []
-  
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const taskDates = props.tasks.map(t => new Date(t.deadline))
   const maxDate = new Date(Math.max(...taskDates))
-  
+
   const months = []
   for (let current = new Date(today.getFullYear(), today.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
     const month = new Date(current)
@@ -206,17 +198,18 @@ const monthCalendars = computed(() => {
     const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
     const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay()
     const firstDay = (firstDayRaw + 6) % 7
-    
+
     const weeks = []
     let day = 1
-    
+
     for (let week = 0; week < 6; week++) {
       const weekDays = []
-      let firstDayOfWeek = new Date(month.getFullYear(), month.getMonth(), 1)
+      const firstDayOfWeek = new Date(month.getFullYear(), month.getMonth(), 1)
       firstDayOfWeek.setDate(firstDayOfWeek.getDate() + (week * 7) - firstDay)
-      
+
       const [, weekNum] = getWeekNumber(firstDayOfWeek)
-      
+      let hasMonthDay = false
+
       for (let wd = 0; wd < 7; wd++) {
         if ((week === 0 && wd < firstDay) || day > daysInMonth) {
           weekDays.push({
@@ -234,7 +227,7 @@ const monthCalendars = computed(() => {
           const stat = dayStats.value[dateStr] || { used: 0, capacity: 0 }
           const exceptionName = props.exceptions.find(e => dateStr >= e.from && dateStr <= e.to)?.name || ''
           const deadlineTasks = props.tasks.filter(t => t.deadline === dateStr)
-          
+
           weekDays.push({
             dateStr,
             dayNum: day,
@@ -244,26 +237,30 @@ const monthCalendars = computed(() => {
             exceptionName,
             deadlineTasks
           })
+          hasMonthDay = true
           day++
         }
       }
-      
-      if (day <= daysInMonth) {
-        weeks.push({ weekNum, days: weekDays })
+
+      if (hasMonthDay) {
+        weeks.push({
+          weekKey: `${month.getFullYear()}-${month.getMonth()}-${week}`,
+          weekNum,
+          days: weekDays
+        })
       }
     }
-    
+
     months.push({
       monthKey: `${month.getFullYear()}-${month.getMonth()}`,
       monthName,
       weeks
     })
   }
-  
+
   return months
 })
 
-// Methods
 const getTaskAssigned = (title) => {
   return props.results
     .filter(r => r.status === 'assigned' && r.title === title)
@@ -272,7 +269,7 @@ const getTaskAssigned = (title) => {
 
 const getProgressColor = (title) => {
   const task = props.tasks.find(t => t.title === title)
-  if (!task) return '#gray'
+  if (!task) return '#6b7280'
   const assigned = getTaskAssigned(title)
   const percent = (assigned / task.minutes) * 100
   if (percent === 100) return '#16a34a'
@@ -292,11 +289,11 @@ const getColorForPriority = (importance) => {
 }
 
 const getCellClass = (day) => {
-  if (!day.dateStr) return ''
-  
+  if (!day.dateStr) return 'bg-white dark:bg-slate-900'
+
   const utilization = day.capacity > 0 ? day.used / day.capacity : 0
   let heatClass = 'bg-white dark:bg-slate-800'
-  
+
   if (utilization > 1) {
     heatClass = 'bg-red-100 dark:bg-red-900 border-l-4 border-red-600'
   } else if (utilization >= 0.8) {
@@ -306,10 +303,7 @@ const getCellClass = (day) => {
   } else if (day.capacity > 0) {
     heatClass = 'bg-green-50 dark:bg-green-900'
   }
-  
+
   return heatClass
 }
 </script>
-
-<style scoped>
-</style>
