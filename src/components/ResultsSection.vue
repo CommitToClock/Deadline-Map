@@ -46,9 +46,9 @@
     <div class="card">
       <h3 class="text-lg font-bold mb-4">Nächste Freie Zeitfenster</h3>
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div v-for="(capacity, date) in unusedDaysMap.slice(0, 5)" :key="date" class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800">
-          <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ formatDateDE(date) }}</div>
-          <div class="text-2xl font-bold text-green-600 dark:text-green-300">{{ (capacity/60).toFixed(1) }}h</div>
+        <div v-for="day in unusedDaysMap.slice(0, 5)" :key="day.date" class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800">
+          <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ formatDateDE(day.date) }}</div>
+          <div class="text-2xl font-bold text-green-600 dark:text-green-300">{{ (day.capacity/60).toFixed(1) }}h</div>
         </div>
       </div>
     </div>
@@ -81,7 +81,7 @@
                   </div>
                   
                   <!-- Deadline flag -->
-                  <div v-if="day.deadlineTasks.length > 0" class="text-xs font-bold text-red-600 dark:text-red-400 mb-2">
+                  <div v-if="day.deadlineTasks?.length > 0" class="text-xs font-bold text-red-600 dark:text-red-400 mb-2">
                     🏁 {{ day.deadlineTasks.map(t => t.title).join(', ') }}
                   </div>
                   
@@ -116,10 +116,11 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  results: Array,
-  tasks: Array,
-  exceptions: Array,
-  darkMode: Boolean
+  results: { type: Array, default: () => [] },
+  tasks: { type: Array, default: () => [] },
+  exceptions: { type: Array, default: () => [] },
+  capacityByDate: { type: Object, default: () => ({}) },
+  darkMode: { type: Boolean, default: false }
 })
 
 const weekDaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -157,7 +158,7 @@ const dayStats = computed(() => {
   
   for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
     const dateStr = toLocalISO(new Date(d))
-    stats[dateStr] = { used: 0, capacity: 0 }
+    stats[dateStr] = { used: 0, capacity: props.capacityByDate[dateStr] || 0 }
   }
   
   props.results.filter(r => r.status === 'assigned').forEach(r => {
@@ -173,7 +174,10 @@ const unusedDaysMap = computed(() => {
   const unused = Object.entries(dayStats.value)
     .filter(([date, stat]) => stat.capacity > 0 && stat.capacity - stat.used > 0)
     .sort((a, b) => a[0].localeCompare(b[0]))
-  return unused.map(([date]) => date)
+  return unused.map(([date, stat]) => ({
+    date,
+    capacity: stat.capacity - stat.used
+  }))
 })
 
 const dayPlans = computed(() => {
@@ -215,7 +219,15 @@ const monthCalendars = computed(() => {
       
       for (let wd = 0; wd < 7; wd++) {
         if ((week === 0 && wd < firstDay) || day > daysInMonth) {
-          weekDays.push({ dateStr: null, dayNum: null })
+          weekDays.push({
+            dateStr: null,
+            dayNum: null,
+            tasks: [],
+            used: 0,
+            capacity: 0,
+            exceptionName: '',
+            deadlineTasks: []
+          })
         } else {
           const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), day))
           const dayTasks = dayPlans.value[dateStr] || []

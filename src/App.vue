@@ -98,6 +98,7 @@
           :results="results" 
           :tasks="computedTasks"
           :exceptions="exceptions"
+          :capacityByDate="capacityByDate"
           :darkMode="darkMode"
         />
       </div>
@@ -183,6 +184,22 @@ const getCapacityForDay = (dateStr) => {
   return getStandardCapacity(dateStr)
 }
 
+const capacityByDate = computed(() => {
+  const capacities = {}
+  if (computedTasks.value.length === 0) return capacities
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const maxDate = new Date(Math.max(...computedTasks.value.map(t => new Date(t.deadline))))
+
+  for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = toLocalISO(new Date(d))
+    capacities[dateStr] = getCapacityForDay(dateStr)
+  }
+
+  return capacities
+})
+
 // Main Schedule Function
 const schedule = (tasksToSchedule) => {
   const plan = []
@@ -220,6 +237,7 @@ const schedule = (tasksToSchedule) => {
         title: task.title,
         minutes: alloc,
         importance: task.importance,
+        deadline: task.deadline,
         status: 'assigned'
       })
       day.remaining -= alloc
@@ -231,6 +249,9 @@ const schedule = (tasksToSchedule) => {
   })
   
   return plan.sort((a, b) => {
+    if (!a.date && !b.date) return 0
+    if (!a.date) return 1
+    if (!b.date) return -1
     if (a.date !== b.date) {
       return a.date > b.date ? 1 : -1
     }
