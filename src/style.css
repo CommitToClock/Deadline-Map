@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-opacity;
+  }
+
+  .btn-success {
+    @apply px-4 py-2 bg-success text-white rounded-lg hover:opacity-90 transition-opacity;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-danger text-white rounded-lg hover:opacity-90 transition-opacity;
+  }
+
+  .btn-sm {
+    @apply px-2 py-1 text-sm;
+  }
+
+  .card {
+    @apply bg-white dark:bg-slate-800 rounded-lg shadow-md p-4 transition-shadow hover:shadow-lg;
+  }
+
+  .input-field {
+    @apply px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+
+  .progress-bar {
+    @apply w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-300;
+  }
+}
