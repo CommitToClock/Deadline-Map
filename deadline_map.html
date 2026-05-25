@@ -5,829 +5,261 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lernplan & Kapazitäts-Check</title>
   <style>
-    :root {
-      --bg-color: #f5f8ff;
-      --card-bg: #fff;
-      --text-color: #1f3b7c;
-      --border-color: #ddd;
-      --shadow: rgba(0,0,0,0.1);
-    }
-    .dark {
-      --bg-color: #1a1a1a;
-      --card-bg: #2a2a2a;
-      --text-color: #e0e0e0;
-      --border-color: #444;
-      --shadow: rgba(0,0,0,0.3);
-    }
-    body { font-family: Arial, sans-serif; margin: 1.5rem; background: var(--bg-color); color: var(--text-color); transition: background 0.3s, color 0.3s; }
-    h1, h2, h3, h4 { color: var(--text-color); }
-    .warn { color: #b22222; font-weight: bold; }
-    .ok { color: #2a7f2a; }
-    .task-row, .slot-row, .exception-row { 
-      margin-bottom: 0.5rem; 
-      padding: 10px; 
-      background: var(--card-bg); 
-      border-radius: 12px; 
-      box-shadow: 0 2px 8px var(--shadow); 
-      transition: box-shadow 0.3s;
-    }
-    input, select { padding: 5px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--text-color); }
-    button { cursor: pointer; padding: 6px 12px; border-radius: 8px; border: none; transition: background 0.3s; }
-    .btn-add { background: #1f3b7c; color: white; margin-top: 5px; }
-    .btn-run { background: #2a7f2a; color: white; font-size: 1.1rem; width: 100%; margin-top: 20px; }
-    .btn-del { background: #ff4d4d; color: white; float: right; }
-    #result { margin-top: 30px; padding: 20px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 2px 8px var(--shadow); }
-    .progress-item { margin: 10px 0; padding: 10px; background: var(--card-bg); border-radius: 8px; box-shadow: 0 1px 4px var(--shadow); }
-    .progress-bar { width: 100%; height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #2a7f2a; border-radius: 6px; transition: width 0.3s; }
-    .calendar { display: flex; flex-wrap: wrap; gap: 15px; }
-    .day-card { background: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px var(--shadow); width: 220px; transition: transform 0.2s; }
-    .day-card:hover { transform: translateY(-2px); }
-    .day-blocks { display: flex; flex-direction: column; gap: 4px; }
-    .task-block { padding: 8px; border-radius: 8px; color: white; font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity 0.3s; }
-    .task-block:hover { opacity: 0.8; }
-    .calendar-grid { display: grid; grid-template-columns: 40px repeat(7, 1fr); gap: 5px; margin-top: 20px; }
-    .month-header { grid-column: 1 / -1; text-align: center; font-size: 1.5em; margin-bottom: 10px; }
-    .weekdays { display: contents; font-weight: bold; }
-    .weekday-label { text-align: center; padding: 5px; font-weight: bold; }
-    .week { display: contents; }
-    .week-number { text-align: center; padding: 5px; font-weight: bold; font-size: 0.85em; color: #666; }
-    .day { border: 1px solid var(--border-color); padding: 5px; min-height: 100px; background: var(--card-bg); }
-    .empty { background: transparent; border: none; }
-    .day-cell { border: 1px solid var(--border-color); padding: 5px; min-height: 100px; position: relative; background: var(--card-bg); border-radius: 8px; transition: background 0.3s, border-color 0.3s; }
-    .day-cell.heat-low { background: #e8f5e9; }
-    .day-cell.heat-medium { background: #fff9c4; }
-    .day-cell.heat-high { background: #ffe0b2; }
-    .day-cell.heat-overloaded { background: #ffebee; border-color: #d32f2f; }
-    .day-number { font-weight: bold; margin-bottom: 5px; }
-    .deadline-flag { position: absolute; top: 5px; right: 5px; font-size: 1.5em; }
-    .exception-name { position: absolute; bottom: 5px; left: 5px; font-size: 0.8em; color: #4caf50; font-weight: bold; }
-    .task-block[draggable] { cursor: move; }
-    .calendar-views { display: flex; flex-direction: column; gap: 20px; }
-    .capacity-summary { margin: 15px 0; padding: 12px; border-radius: 12px; background: rgba(34, 197, 94, 0.08); }
-    .capacity-summary.warning { background: rgba(244, 67, 54, 0.12); }
-    .capacity-summary ul { margin: 8px 0 0; padding-left: 20px; }
-    .capacity-summary li { margin-bottom: 4px; }
-    .capacity-label { font-weight: bold; }
-    .free-buckets { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
-    .free-bucket { flex: 1 1 150px; padding: 14px; border-radius: 14px; background: #ffffff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid rgba(31,59,124,0.12); }
-    .free-bucket .bucket-title { font-size: 0.9rem; color: #1f3b7c; margin-bottom: 8px; }
-    .free-bucket .bucket-value { font-size: 1.35rem; font-weight: bold; color: #2a7f2a; }
-    .free-bucket.overloaded { border-color: #d32f2f; background: #fff0f0; }
-    .free-bucket.overloaded .bucket-value { color: #d32f2f; }
-    .day-card.heat-high { border: 1px solid #ff9800; }
-    .day-card.heat-overloaded { border: 2px solid #d32f2f; }
-    .day-card.heat-low { border: 1px solid #4caf50; }
-    .day-card.heat-medium { border: 1px solid #fbc02d; }
-    .day-cell.override { border-left: 4px solid #2196f3; }
-
-    .steps-grid {
-      display: grid;
-      gap: 1.25rem;
-      grid-template-columns: 1fr;
-      margin-bottom: 1.5rem;
-    }
-    .step-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 18px;
-      padding: 1.2rem;
-      box-shadow: 0 2px 12px var(--shadow);
-      max-width: 720px;
-      width: 100%;
-    }
-    .step-card.left { justify-self: start; }
-    .step-card.right { justify-self: end; }
-
-    @media (min-width: 900px) {
-      .steps-grid { grid-template-columns: repeat(2, minmax(320px, 1fr)); }
-      .step-card { max-width: none; }
-    }
+    :root { --bg:#f5f8ff; --card:#fff; --text:#1f3b7c; --accent:#2563eb; --today-bg: #fff3bf; }
+    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:1.25rem;background:var(--bg);color:var(--text)}
+    #month-calendar{display:grid;grid-template-columns:60px repeat(7,1fr);gap:8px}
+    .weekday-label{font-weight:700;text-align:center;color:#334155}
+    .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:#475569;background:#eef2ff;border-radius:10px}
+    .day.empty{background:transparent;border:none}
+    .day-cell{background:#fff;padding:10px;border-radius:10px;border:1px solid #e6e9f2;min-height:90px;display:flex;flex-direction:column}
+    .day-number{font-weight:700;font-size:1rem;color:#0f172a}
+    .today{background:linear-gradient(90deg, rgba(37,99,235,0.08), rgba(59,130,246,0.12));box-shadow:0 6px 14px rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.25)}
+    .capacity-bar{height:8px;background:#eef2ff;border-radius:6px;margin-top:6px;overflow:hidden}
+    .capacity-fill{height:100%;background:linear-gradient(90deg,var(--accent),#60a5fa);width:0%}
+    .day-cell.overloaded{border-color:#f87171;background:rgba(254,202,202,0.16)}
+    .day-cell.overloaded .capacity-fill{background:linear-gradient(90deg,#ef4444,#fca5a5)}
+    .task-block{margin-top:8px;padding:8px;border-radius:8px;background:#f8fafc;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .task-title{font-weight:600;flex:1}
+    .drag-handle{cursor:grab;padding:0 6px;color:#475569}
+    .priority-1{background:#1e3a8a;color:#fff}
+    .priority-2{background:#2563eb;color:#fff}
+    .priority-3{background:#3b82f6;color:#fff}
+    .priority-4{background:#93c5fd;color:#0f172a}
+    .priority-5{background:#dbeafe;color:#0f172a}
+    .status-pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700;letter-spacing:.02em}
+    .status-assigned{background:#dbf4ff;color:#0369a1}
+    .status-overdue{background:#fee2e2;color:#b91c1c}
+    .status-unassigned{background:#f8fafc;color:#475569}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+    .toolbar .btn{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.08)}
+    .toolbar .toggle-btn{background:linear-gradient(90deg,#2563eb,#60a5fa);color:#fff;border:none}
+    .dark body{background:#0f172a;color:#f8fafc}
+    .dark .day-cell{background:#1e293b;border-color:#334155}
+    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:#334155}
+    .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
+    .dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
+    .dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
+    .dark input, .dark select{background:#0f172a;color:#f8fafc;border-color:#334155}
+    .dark .task-block{background:#111827}
+    .btn{padding:10px 12px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;font-weight:600}
+    input[type="number"], input[type="date"], input[type="text"]{padding:10px;border-radius:10px;border:1px solid #e2e8f0}
+    .task-row, .slot-row, .exception-row{margin-bottom:10px;padding:12px;background:var(--card);border-radius:14px}
   </style>
 </head>
 <body>
-
   <h1>Lernplan & Kapazitäts-Check</h1>
-  <div style="float:right; display:flex; gap:8px;">
-    <button id="save-data" class="btn-add">💾 Speichern</button>
-    <button id="load-data" class="btn-add">📂 Laden</button>
-    <button id="export-data" class="btn-add">📥 Exportieren</button>
-    <button id="import-data" class="btn-add">📤 Importieren</button>
-    <button id="toggle-dark" class="btn-add">🌙 Dark Mode</button>
+  <div class="toolbar">
+    <button id="save-data" class="btn">Speichern</button>
+    <button id="load-data" class="btn">Laden</button>
+    <button id="export-data" class="btn">Exportieren</button>
+    <button id="import-data" class="btn">Importieren</button>
+    <button id="toggle-dark" class="btn toggle-btn">Dark Mode</button>
+    <input id="file-import" type="file" accept="application/json" style="display:none">
   </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <button id="prev-month" class="btn">«</button>
+    <strong id="month-title"></strong>
+    <button id="next-month" class="btn">»</button>
+  </div>
+  <div id="month-calendar"></div>
 
-  <div class="steps-grid">
-    <section class="step-card left">
-      <h2>1. Aufgaben (Deadlines)</h2>
+  <hr style="margin:12px 0">
+  <div style="display:flex;gap:16px;">
+    <div style="flex:1">
+      <h3>Aufgaben</h3>
       <div id="tasks"></div>
-      <button id="add-task" class="btn-add">+ Aufgabe hinzufügen</button>
-    </section>
-
-    <section class="step-card right">
-      <h2>2. Wöchentliche Zeitfenster</h2>
+      <button id="add-task" class="btn">Aufgabe hinzufügen</button>
+    </div>
+    <div style="flex:1">
+      <h3>Slots</h3>
       <div id="slots"></div>
-      <button id="add-slot" class="btn-add">+ Slot hinzufügen</button>
-    </section>
-
-    <section class="step-card left">
-      <h2>3. Ausnahmetage (Keine Lernzeit)</h2>
+      <button id="add-slot" class="btn">Slot hinzufügen</button>
+    </div>
+    <div style="flex:1">
+      <h3>Ausnahmen</h3>
       <div id="exceptions"></div>
-      <button id="add-exception" class="btn-add">+ Ausnahmetag hinzufügen</button>
-    </section>
-
-    <section class="step-card right">
-      <h2>4. Wöchentliche Overrides</h2>
-      <div id="overrides"></div>
-      <button id="add-override" class="btn-add">+ Override hinzufügen</button>
-    </section>
+      <button id="add-exception" class="btn">Ausnahme hinzufügen</button>
+    </div>
   </div>
-
-  <button id="run-schedule" class="btn-run">📅 Schedule erstellen</button>
-
-  <div id="result"></div>
 
   <script>
-    // --- LOCALSTORAGE FUNKTIONEN ---
-    function saveToLocalStorage() {
-      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
-        title: r.querySelector('.t-title').value,
-        hours: r.querySelector('.t-hrs').value,
-        deadline: r.querySelector('.t-dl').value,
-        importance: r.querySelector('.t-imp').value
-      }));
-      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
-        day: r.querySelector('.s-day').value,
-        hours: r.querySelector('.s-hrs').value
-      }));
-      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
-        name: r.querySelector('.e-name').value,
-        from: r.querySelector('.e-from').value,
-        to: r.querySelector('.e-to').value
-      }));
-      const overrides = [...document.querySelectorAll('.override-row')].map(r => ({
-        year: parseInt(r.querySelector('.o-year').value),
-        week: parseInt(r.querySelector('.o-week').value),
-        slots: ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day => ({
-          day: day,
-          hours: parseFloat(r.querySelector(`.o-${day.toLowerCase()}`).value) || 0
-        }))
-      }));
-      localStorage.setItem('lernplan_tasks', JSON.stringify(tasks));
-      localStorage.setItem('lernplan_slots', JSON.stringify(slots));
-      localStorage.setItem('lernplan_exceptions', JSON.stringify(exceptions));
-      localStorage.setItem('lernplan_overrides', JSON.stringify(overrides));
-      alert('✅ Daten gespeichert!');
-    }
-
-    function loadFromLocalStorage() {
-      const tasks = JSON.parse(localStorage.getItem('lernplan_tasks') || '[]');
-      const slots = JSON.parse(localStorage.getItem('lernplan_slots') || '[]');
-      const exceptions = JSON.parse(localStorage.getItem('lernplan_exceptions') || '[]');
-      const overrides = JSON.parse(localStorage.getItem('lernplan_overrides') || '[]');
-      
-      document.getElementById('tasks').innerHTML = '';
-      document.getElementById('slots').innerHTML = '';
-      document.getElementById('exceptions').innerHTML = '';
-      document.getElementById('overrides').innerHTML = '';
-      
-      tasks.forEach(t => {
-        const div = document.createElement('div');
-        div.className = 'task-row';
-        div.innerHTML = '<input class="t-title" placeholder="Aufgabe" style="width:140px" value="' + t.title + '"><input class="t-hrs" type="number" step="0.25" value="' + t.hours + '" style="width:55px"> Stunden |Deadline: <input class="t-dl" type="date" value="' + t.deadline + '"> Prio <input class="t-imp" type="number" value="' + t.importance + '" min="1" max="5" style="width:35px"><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-        document.getElementById('tasks').appendChild(div);
-      });
-      
-      slots.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'slot-row';
-        const dayOptions = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d => '<option ' + (d === s.day ? 'selected' : '') + '>' + d + '</option>').join('');
-        div.innerHTML = '<select class="s-day">' + dayOptions + '</select> <input class="s-hrs" type="number" step="0.25" value="' + s.hours + '" style="width:55px"> Stunden/Tag <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-        document.getElementById('slots').appendChild(div);
-      });
-      
-      exceptions.forEach(e => {
-        const div = document.createElement('div');
-        div.className = 'exception-row';
-        div.innerHTML = '<input class="e-name" placeholder="Grund" style="width:100px" value="' + e.name + '"> <input class="e-from" type="date" value="' + e.from + '"> bis <input class="e-to" type="date" value="' + e.to + '"> <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-        document.getElementById('exceptions').appendChild(div);
-      });
-      
-      overrides.forEach(o => {
-        const div = document.createElement('div');
-        div.className = 'override-row';
-        let html = '<input class="o-year" type="number" placeholder="Jahr" value="' + o.year + '" style="width:60px"> KW <input class="o-week" type="number" min="1" max="53" value="' + o.week + '" style="width:50px"> | ';
-        ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].forEach(day => {
-          const slot = o.slots.find(s => s.day === day);
-          const hours = slot ? slot.hours : 0;
-          html += `${day}: <input class="o-${day.toLowerCase()}" type="number" step="0.25" value="${hours}" style="width:50px"> `;
-        });
-        html += '<button class="btn-add" onclick="setAsStandard(this)">Als Standard</button><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-        div.innerHTML = html;
-        document.getElementById('overrides').appendChild(div);
-      });
-      
-      alert('✅ Daten geladen!');
-    }
-
-    function exportData() {
-      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
-        title: r.querySelector('.t-title').value,
-        hours: r.querySelector('.t-hrs').value,
-        deadline: r.querySelector('.t-dl').value,
-        importance: r.querySelector('.t-imp').value
-      }));
-      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
-        day: r.querySelector('.s-day').value,
-        hours: r.querySelector('.s-hrs').value
-      }));
-      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
-        name: r.querySelector('.e-name').value,
-        from: r.querySelector('.e-from').value,
-        to: r.querySelector('.e-to').value
-      }));
-      const overrides = [...document.querySelectorAll('.override-row')].map(r => ({
-        year: parseInt(r.querySelector('.o-year').value),
-        week: parseInt(r.querySelector('.o-week').value),
-        slots: ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day => ({
-          day: day,
-          hours: parseFloat(r.querySelector(`.o-${day.toLowerCase()}`).value) || 0
-        }))
-      }));
-      
-      const data = { tasks: tasks, slots: slots, exceptions: exceptions, overrides: overrides, exportedAt: new Date().toLocaleString('de-DE') };
-      const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'lernplan_' + new Date().toISOString().split('T')[0] + '.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      alert('✅ Daten exportiert!');
-    }
-
-    function importData() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target.result);
-            document.getElementById('tasks').innerHTML = '';
-            document.getElementById('slots').innerHTML = '';
-            document.getElementById('exceptions').innerHTML = '';
-            document.getElementById('overrides').innerHTML = '';
-            
-            data.tasks.forEach(t => {
-              const div = document.createElement('div');
-              div.className = 'task-row';
-              div.innerHTML = '<input class="t-title" placeholder="Aufgabe" style="width:140px" value="' + t.title + '"><input class="t-hrs" type="number" step="0.25" value="' + t.hours + '" style="width:55px"> Stunden |Deadline: <input class="t-dl" type="date" value="' + t.deadline + '"> Prio <input class="t-imp" type="number" value="' + t.importance + '" min="1" max="5" style="width:35px"><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-              document.getElementById('tasks').appendChild(div);
-            });
-            
-            data.slots.forEach(s => {
-              const div = document.createElement('div');
-              div.className = 'slot-row';
-              const dayOptions = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d => '<option ' + (d === s.day ? 'selected' : '') + '>' + d + '</option>').join('');
-              div.innerHTML = '<select class="s-day">' + dayOptions + '</select> <input class="s-hrs" type="number" step="0.25" value="' + s.hours + '" style="width:55px"> Stunden/Tag <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-              document.getElementById('slots').appendChild(div);
-            });
-            
-            data.exceptions.forEach(e => {
-              const div = document.createElement('div');
-              div.className = 'exception-row';
-              div.innerHTML = '<input class="e-name" placeholder="Grund" style="width:100px" value="' + e.name + '"> <input class="e-from" type="date" value="' + e.from + '"> bis <input class="e-to" type="date" value="' + e.to + '"> <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-              document.getElementById('exceptions').appendChild(div);
-            });
-            
-            if (data.overrides) {
-              data.overrides.forEach(o => {
-                const div = document.createElement('div');
-                div.className = 'override-row';
-                let html = '<input class="o-year" type="number" placeholder="Jahr" value="' + o.year + '" style="width:60px"> KW <input class="o-week" type="number" min="1" max="53" value="' + o.week + '" style="width:50px"> | ';
-                ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].forEach(day => {
-                  const slot = o.slots.find(s => s.day === day);
-                  const hours = slot ? slot.hours : 0;
-                  html += `${day}: <input class="o-${day.toLowerCase()}" type="number" step="0.25" value="${hours}" style="width:50px"> `;
-                });
-                html += '<button class="btn-add" onclick="setAsStandard(this)">Als Standard</button><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-                div.innerHTML = html;
-                document.getElementById('overrides').appendChild(div);
-              });
-            }
-            
-            alert('✅ Daten importiert!');
-          } catch (error) {
-            alert('❌ Fehler beim Importieren: ' + error.message);
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    }
-
-    // --- HILFSFUNKTIONEN ---
-    const toLocalISO = (date) => date.toLocaleDateString('sv-SE'); 
-    const formatDateDE = (ds) => ds.split('-').reverse().join('.');
-
+    // helpers
+    const toLocalISO = d => new Date(d).toLocaleDateString('sv-SE');
+    const formatDateDE = ds => ds ? ds.split('-').reverse().join('.') : '';
     function getWeekNumber(d) {
       d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-      var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
       return [d.getUTCFullYear(), weekNo];
     }
-
-    function getMondayOfCalendarRow(month, weekIndex, firstDay) {
-      const monday = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay);
-      monday.setDate(monday.getDate() + (weekIndex * 7));
-      return monday;
-    }
-
     function isException(dateStr) {
-      return window.exceptions.some(e => dateStr >= e.from && dateStr <= e.to);
+      return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
 
-    function getExceptionName(dateStr) {
-      if (!window.exceptions || !Array.isArray(window.exceptions)) return '';
-      const exception = window.exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
-      return exception ? exception.name : '';
-    }
+    // small utilities
+    function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=Math.round((Number(s.hours)||0)*60)); return m; }
 
-    function hasOverride(dateStr) {
-      const [year, week] = getWeekNumber(new Date(dateStr));
-      return window.overrides.some(o => o.year === year && o.week === week);
-    }
-
-    function getOverrideCapacity(dateStr) {
-      const [year, week] = getWeekNumber(new Date(dateStr));
-      const override = window.overrides.find(o => o.year === year && o.week === week);
-      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-      const d = new Date(dateStr);
-      const dayName = dayNames[d.getDay()];
-      const slot = override.slots.find(s => s.day === dayName);
-      return slot ? Math.round(slot.hours * 60) : 0;
-    }
-
-    function getStandardCapacity(dateStr) {
-      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-      const d = new Date(dateStr);
-      const dayName = dayNames[d.getDay()];
-      return window.slotMap[dayName] || 0;
-    }
-
-    function getCapacityForDay(dateStr) {
-      if (isException(dateStr)) return 0;
-      if (hasOverride(dateStr)) return getOverrideCapacity(dateStr);
-      return getStandardCapacity(dateStr);
-    }
-
-    // --- LOGIK: ZEITPLANUNG ---
-    function schedule(tasks, slots, exceptions) {
-      const plan = [];
-      const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-      
-      const sortedTasks = [...tasks].sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-      
-      const slotMap = {};
-      slots.forEach(s => { slotMap[s.day] = Math.round(s.hours * 60); });
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const maxDL = new Date(Math.max(...tasks.map(t => new Date(t.deadline))));
-
+    // scheduling algorithm (kept simple)
+    function schedule(tasks, slots, exceptions){
+      if(!tasks||tasks.length===0) return [];
+      const plan=[];
+      const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+      const slotMap = buildSlotMap(slots);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
       const calendar = [];
-      for (let d = new Date(today); d <= maxDL; d.setDate(d.getDate() + 1)) {
-        const dStr = toLocalISO(d);
-        const dName = dayNames[d.getDay()];
-        const capacity = getCapacityForDay(dStr);
+      for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
+        const ds = toLocalISO(d);
+        const capacity = isException(ds) ? 0 : (slotMap[new Date(d).toLocaleDateString('de-DE',{weekday:'long'})]||0);
+        if(capacity>0) calendar.push({date:ds,remaining:capacity,day:dayNames[new Date(d).getDay()]});
+      }
+      const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+      sorted.forEach(task=>{
+        let need = Number(task.minutes||task.hours||0);
+        if (!task.minutes && task.hours) need = Number(task.hours)*60;
+        if (!need) return;
+        for(const day of calendar){ if(need<=0) break; if(day.remaining<=0) continue; if(new Date(day.date) >= new Date(task.deadline)) continue; const alloc = Math.min(need, day.remaining); plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned'}); day.remaining-=alloc; need-=alloc; }
+        if(need>0) plan.push({title:task.title,minutes:need,status:'overdue'});
+      });
+      return plan;
+    }
 
-        if (capacity > 0) {
-          calendar.push({ date: dStr, day: dName, remaining: capacity });
+    // UI helpers
+    function createRow(containerId, html){ const div=document.createElement('div'); div.className = containerId.slice(0,-1)+'-row'; div.innerHTML = html + `<button class="btn" onclick="this.parentElement.remove()">✕</button>`; document.getElementById(containerId).appendChild(div); }
+    function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: parseFloat(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
+    function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: parseFloat(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
+    function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
+
+    function getFormData(){ return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), month: currentMonthDate.toISOString().slice(0,7) }; }
+    function fillFormData(data){
+      document.getElementById('tasks').innerHTML='';
+      document.getElementById('slots').innerHTML='';
+      document.getElementById('exceptions').innerHTML='';
+      (data.tasks||[]).forEach(t=> createRow('tasks', `<input class="t-title" value="${t.title}"> <input class="t-hrs" type="number" value="${(t.minutes||0)/60}" style="width:55px"> <input class=\"t-dl\" type=\"date\" value=\"${t.deadline}\"> <input class=\"t-imp\" type=\"number\" value=\"${t.importance||1}\" style=\"width:35px\">`));
+      (data.slots||[]).forEach(s=> {
+        createRow('slots', `<select class="s-day"><option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option><option>Sonntag</option></select> <input class="s-hrs" type="number" value="${s.hours||0}" style="width:55px"> Stunden/ Tag`);
+        const rows = document.querySelectorAll('.slot-row');
+        const latest = rows[rows.length-1];
+        if(latest) latest.querySelector('.s-day').value = s.day;
+      });
+      (data.exceptions||[]).forEach(e=> createRow('exceptions', `<input class="e-name" value="${e.name}"> <input class="e-from" type="date" value="${e.from}"> bis <input class="e-to" type="date" value="${e.to}">`));
+      if(data.month){ const [year,month]=data.month.split('-'); currentMonthDate = new Date(Number(year), Number(month)-1,1); }
+    }
+    function saveData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); alert('Daten gespeichert.'); }
+    function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
+    function exportData(){ const blob = new Blob([JSON.stringify(getFormData(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
+    function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
+    function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
+    function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
+
+    let currentMonthDate = new Date(); currentMonthDate.setDate(1);
+
+    function renderMonthView(){
+      const tasks = getTasksFromUI();
+      const slots = getSlotsFromUI();
+      const exceptions = getExceptionsFromUI();
+      window.slotMap = buildSlotMap(slots);
+      window.exceptions = exceptions;
+      const results = schedule(tasks, slots, exceptions);
+      window.plan = results; window.tasks = tasks;
+
+      const month = new Date(currentMonthDate);
+      const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
+      const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+      const firstDay = (firstDayRaw + 6) % 7;
+
+      const dayPlans = {};
+      results.forEach(r=>{ if(r.status==='assigned'){ (dayPlans[r.date] = dayPlans[r.date]||[]).push(r); } });
+      const deadlineTasks = {};
+      tasks.forEach(t=>{ (deadlineTasks[t.deadline]=deadlineTasks[t.deadline]||[]).push(t); });
+
+      document.getElementById('month-title').textContent = month.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      const container = document.getElementById('month-calendar'); container.innerHTML = '';
+      const headerBlank = document.createElement('div'); headerBlank.className = 'week-number'; container.appendChild(headerBlank);
+      ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(d=>{ const cell=document.createElement('div'); cell.className='weekday-label'; cell.textContent=d; container.appendChild(cell); });
+      const todayStr = toLocalISO(new Date());
+      const totalCells = firstDay + daysInMonth;
+      const weeks = Math.ceil(totalCells / 7);
+      let day = 1;
+      for(let row=0; row<weeks; row++){
+        const weekStart = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay + row*7);
+        const [weekYear, weekNo] = getWeekNumber(weekStart);
+        const weekLabel = document.createElement('div'); weekLabel.className='week-number'; weekLabel.textContent = `KW ${('0'+weekNo).slice(-2)}`;
+        container.appendChild(weekLabel);
+        for(let weekday=0; weekday<7; weekday++){
+          const dateIndex = row*7 + weekday - firstDay + 1;
+          if(dateIndex < 1 || dateIndex > daysInMonth){ const empty=document.createElement('div'); empty.className='day empty'; container.appendChild(empty); continue; }
+          const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), dateIndex));
+          const dayCell = document.createElement('div'); dayCell.className='day-cell'; dayCell.dataset.date = dateStr; if(dateStr===todayStr) dayCell.classList.add('today');
+          const header = document.createElement('div'); header.className='day-number'; header.textContent = dateIndex; dayCell.appendChild(header);
+          const tasksForDay = dayPlans[dateStr]||[];
+          const deadlineForDay = deadlineTasks[dateStr]||[];
+          const capacity = (window.slotMap && window.slotMap[new Date(dateStr).toLocaleDateString('de-DE',{weekday:'long'})]) || 0;
+          const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
+          const util = capacity > 0 ? used / capacity : 0;
+          if(capacity>0){ const capInfo=document.createElement('div'); capInfo.style.fontSize='0.85rem'; capInfo.style.margin='0.25rem 0'; capInfo.textContent = `${(used/60).toFixed(1)}h / ${(capacity/60).toFixed(1)}h verplant`; dayCell.appendChild(capInfo); const bar=document.createElement('div'); bar.className='capacity-bar'; const fill=document.createElement('div'); fill.className='capacity-fill'; fill.style.width = `${Math.min(100, Math.round(util * 100))}%`; if(util > 1){ dayCell.classList.add('overloaded'); } else if(util > 0.8){ fill.style.background = 'linear-gradient(90deg,#f97316,#fb923c)'; } bar.appendChild(fill); dayCell.appendChild(bar); }
+          if(capacity===0 && tasksForDay.length>0){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
+          tasksForDay.slice(0,2).forEach(t=>{ const tb=document.createElement('div'); const prio = Math.min(5, Math.max(1, parseInt(t.importance)||1)); tb.className=`task-block priority-${prio}`; tb.draggable=true; tb.dataset.title=t.title; tb.innerHTML = `<span class="drag-handle">☰</span><span class="task-title">${t.title}</span><span>${(t.minutes/60).toFixed(1)}h</span>`; dayCell.appendChild(tb); });
+          deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.style.marginTop='6px'; dl.style.fontSize='0.85rem'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
+          if(tasksForDay.length>2){ const more=document.createElement('div'); more.style.fontSize='0.75rem'; more.style.marginTop='6px'; more.textContent = `+${tasksForDay.length-2} mehr`; dayCell.appendChild(more); }
+          container.appendChild(dayCell);
         }
       }
 
-      sortedTasks.forEach(task => {
-        let needed = task.minutes;
-        for (let day of calendar) {
-          if (needed <= 0) break;
-          if (day.remaining <= 0) continue;
-          if (new Date(day.date) >= new Date(task.deadline)) continue; 
-
-          const alloc = Math.min(needed, day.remaining);
-          plan.push({
-            date: day.date,
-            dayName: day.day,
-            title: task.title,
-            minutes: alloc,
-            importance: task.importance,
-            status: 'assigned'
-          });
-          day.remaining -= alloc;
-          needed -= alloc;
-        }
-        if (needed > 0) {
-          plan.push({ title: task.title, minutes: needed, status: 'overdue' });
-        }
-      });
-
-      return plan.sort((a, b) => {
-        if (a.date !== b.date) {
-          return a.date > b.date ? 1 : -1;
-        }
-        return parseInt(b.importance) - parseInt(a.importance);
-      });
     }
 
-    // --- UI FUNKTIONEN ---
-    function createRow(containerId, html) {
-      const div = document.createElement('div');
-      div.className = containerId.slice(0, -1) + '-row';
-      div.innerHTML = html + `<button class="btn-del" onclick="this.parentElement.remove()">✕</button>`;
-      document.getElementById(containerId).appendChild(div);
-    }
-    function buildSlotMap(slots) {
-      const map = {};
-      slots.forEach(s => { map[s.day] = Math.round(s.hours * 60); });
-      return map;
-    }
-    function getDayCapacity(dateStr) {
-      return getCapacityForDay(dateStr);
-    }
-    function getHeatClass(utilization) {
-      if (utilization > 1) return 'heat-overloaded';
-      if (utilization >= 0.8) return 'heat-high';
-      if (utilization >= 0.5) return 'heat-medium';
-      return 'heat-low';
-    }
-    function setAsStandard(button) {
-      const row = button.parentElement;
-      const slots = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day => ({
-        day: day,
-        hours: parseFloat(row.querySelector(`.o-${day.toLowerCase()}`).value) || 0
-      }));
-      
-      // Update standard slots
-      document.getElementById('slots').innerHTML = '';
-      slots.forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'slot-row';
-        const dayOptions = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d => '<option ' + (d === s.day ? 'selected' : '') + '>' + d + '</option>').join('');
-        div.innerHTML = '<select class="s-day">' + dayOptions + '</select> <input class="s-hrs" type="number" step="0.25" value="' + s.hours + '" style="width:55px"> Stunden/Tag <button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-        document.getElementById('slots').appendChild(div);
-      });
-      
-      // Remove the override
-      row.remove();
-      alert('✅ Override als Standard gesetzt!');
-    }
+    function changeMonth(offset){ currentMonthDate.setMonth(currentMonthDate.getMonth()+offset); renderMonthView(); }
 
-    // Task Row mit Step 0.25 und Default 0
-    document.getElementById('add-task').onclick = () => createRow('tasks', `
+    // wire controls
+    document.getElementById('prev-month').addEventListener('click', ()=>changeMonth(-1));
+    document.getElementById('next-month').addEventListener('click', ()=>changeMonth(1));
+    document.getElementById('save-data').addEventListener('click', saveData);
+    document.getElementById('load-data').addEventListener('click', loadData);
+    document.getElementById('export-data').addEventListener('click', exportData);
+    document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
+    document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
+    document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
+
+    document.getElementById('add-task').addEventListener('click', ()=> createRow('tasks', `
       <input class="t-title" placeholder="Aufgabe" style="width:140px">
       <input class="t-hrs" type="number" step="0.25" value="0" style="width:55px"> Stunden
       |Deadline:
       <input class="t-dl" type="date">
       Prio <input class="t-imp" type="number" value="1" min="1" max="5" style="width:35px">
-    `);
+    `));
 
-    // Slot Row mit Step 0.25 und Default 0
-    document.getElementById('add-slot').onclick = () => createRow('slots', `
+    document.getElementById('add-slot').addEventListener('click', ()=> createRow('slots', `
       <select class="s-day">
-        ${['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(d=>`<option>${d}</option>`).join('')}
+        <option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option><option>Sonntag</option>
       </select>
       <input class="s-hrs" type="number" step="0.25" value="0" style="width:55px"> Stunden/ Tag
-    `);
+    `));
 
-    document.getElementById('add-exception').onclick = () => createRow('exceptions', `
+    document.getElementById('add-exception').addEventListener('click', ()=> createRow('exceptions', `
       <input class="e-name" placeholder="Grund" style="width:100px">
       <input class="e-from" type="date"> bis <input class="e-to" type="date">
-    `);
+    `));
 
-    document.getElementById('add-override').onclick = () => {
-      const div = document.createElement('div');
-      div.className = 'override-row';
-      const currentYear = new Date().getFullYear();
-      const currentWeek = getWeekNumber(new Date())[1];
-      let html = '<input class="o-year" type="number" placeholder="Jahr" value="' + currentYear + '" style="width:60px"> KW <input class="o-week" type="number" min="1" max="53" value="' + currentWeek + '" style="width:50px"> | ';
-      ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].forEach(day => {
-        html += `${day}: <input class="o-${day.toLowerCase()}" type="number" step="0.25" value="0" style="width:50px"> `;
-      });
-      html += '<button class="btn-add" onclick="setAsStandard(this)">Als Standard</button><button class="btn-del" onclick="this.parentElement.remove()">✕</button>';
-      div.innerHTML = html;
-      document.getElementById('overrides').appendChild(div);
-    };
+    document.addEventListener('input', renderMonthView);
+    document.addEventListener('change', renderMonthView);
+    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderMonthView(); });
 
-    // Button Event Listener
-    document.getElementById('toggle-dark').onclick = () => {
-      document.body.classList.toggle('dark');
-      const btn = document.getElementById('toggle-dark');
-      btn.textContent = document.body.classList.contains('dark') ? '☀️ Light Mode' : '🌙 Dark Mode';
-    };
-
-    document.getElementById('save-data').onclick = saveToLocalStorage;
-    document.getElementById('load-data').onclick = loadFromLocalStorage;
-    document.getElementById('export-data').onclick = exportData;
-    document.getElementById('import-data').onclick = importData;
-
-    // Beim Laden der Seite: Versuche, gespeicherte Daten zu laden
-    window.addEventListener('DOMContentLoaded', () => {
-      const saved = localStorage.getItem('lernplan_tasks');
-      if (saved) {
-        const loadQuestion = confirm('Gespeicherte Daten gefunden! Möchtest du sie laden?');
-        if (loadQuestion) loadFromLocalStorage();
-      }
-    });
-
-    // --- AUSFÜHRUNG ---
-    let currentView = 'calendar';
-
-    function formatHours(minutes) {
-      return (minutes / 60).toFixed(2) + 'h';
-    }
-
-    function renderResults(results, tasks) {
-      const totalNeeded = tasks.reduce((sum, t) => sum + t.minutes, 0);
-      const totalAssigned = results.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0);
-
-      let html = `<h3>Check: ${totalAssigned >= totalNeeded ? '<span class="ok">Zeit reicht aus ✅</span>' : '<span class="warn">Zeitmangel! ⛔</span>'}</h3>`;
-      html += `<p>Benötigt: ${(totalNeeded/60).toFixed(2)}h | Geplant: ${(totalAssigned/60).toFixed(2)}h</p>`;
-      
-      // Progress section
-      html += '<h3>Aufgaben Fortschritt</h3>';
-      const taskProgress = {};
-      results.forEach(r => {
-        if (r.status === 'assigned') {
-          taskProgress[r.title] = (taskProgress[r.title] || 0) + r.minutes;
-        }
-      });
-      tasks.forEach(task => {
-        const assigned = taskProgress[task.title] || 0;
-        const total = task.minutes;
-        const percent = Math.min((assigned / total) * 100, 100);
-        const color = percent === 100 ? 'green' : percent >= 50 ? 'orange' : 'red';
-        html += `<div class="progress-item">
-          <div>${task.title}: ${(assigned/60).toFixed(2)} von ${(total/60).toFixed(2)} Stunden geplant</div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${percent}%; background-color:${color}"></div></div>
-        </div>`;
-      });
-      
-      // Overdue
-      const overdue = results.filter(r => r.status === 'overdue');
-      if (overdue.length > 0) {
-        html += '<h3>Überfällige Aufgaben</h3>';
-        overdue.forEach(r => {
-          html += `<div class="overdue">${r.title}: ${(r.minutes/60).toFixed(2)}h nicht zugewiesen</div>`;
-        });
-      }
-      
-      // Zeitplan
-      html += '<h3>Zeitplan</h3>';
-      
-      // Calendar view
-      html += '<div id="calendar-view" style="display:block;">';
-      if (tasks.length > 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const taskDates = tasks.map(t => new Date(t.deadline));
-        const exceptionDates = (window.exceptions && window.exceptions.length > 0) 
-          ? window.exceptions.flatMap(e => [new Date(e.from), new Date(e.to)]).filter(d => !isNaN(d))
-          : [];
-        const allDates = [...taskDates, ...exceptionDates, today];
-        const minDate = new Date(Math.min(...allDates));
-        const maxDate = new Date(Math.max(...allDates));
-        // Optional: Extend maxDate by 7 days to show free slots after deadlines
-        maxDate.setDate(maxDate.getDate());
-        const dayStats = {};
-        // Initialize all days from minDate to maxDate with capacity and used: 0
-        for (let current = new Date(minDate); current <= maxDate; current.setDate(current.getDate() + 1)) {
-          const dateStr = toLocalISO(new Date(current));
-          dayStats[dateStr] = { used: 0, capacity: getDayCapacity(dateStr) };
-        }
-        // Subtract used time from assigned results
-        results.filter(r => r.status === 'assigned').forEach(r => {
-          if (dayStats[r.date]) {
-            dayStats[r.date].used += r.minutes;
-          }
-        });
-
-        const dayPlans = {};
-        results.forEach(r => {
-          if (r.status === 'assigned') {
-            if (!dayPlans[r.date]) dayPlans[r.date] = [];
-            dayPlans[r.date].push(r);
-          }
-        });
-
-        const unusedDays = Object.entries(dayStats)
-          .filter(([, stat]) => stat.capacity > 0 && stat.capacity - stat.used > 0)
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .slice(0, 5);
-        const overloadDays = Object.entries(dayStats).filter(([, stat]) => stat.capacity > 0 && stat.used > stat.capacity);
-
-        html += '<div class="capacity-summary' + (overloadDays.length ? ' warning' : '') + '">';
-        if (overloadDays.length) {
-          html += '<div class="capacity-label">Überlastung:</div> Es gibt Tage mit mehr als 100% Planung. Bitte verschiebe Aufgaben oder erhöhe Kapazitäten.</div>';
-        } else {
-          html += '<div class="capacity-label">Nächste Freie Zeitfenster</div>';
-        }
-        html += '<div class="capacity-summary"><div class="capacity-label">Nächste Freie Zeitfenster</div>';
-        if (unusedDays.length) {
-          html += '<div class="free-buckets">';
-          unusedDays.forEach(([date, stat]) => {
-            const isOverloaded = stat.used > stat.capacity;
-            html += `<div class="free-bucket${isOverloaded ? ' overloaded' : ''}">`;
-            html += `<div class="bucket-title">${formatDateDE(date)}</div>`;
-            html += `<div class="bucket-value">${formatHours(stat.capacity - stat.used)} frei</div>`;
-            html += `</div>`;
-          });
-          html += '</div>';
-        } else {
-          html += '<p>Keine freien Kapazitäten im ausgewählten Zeitraum gefunden.</p>';
-        }
-        html += '</div>';
-
-        html += '<div class="calendar-views">';
-        for (let current = new Date(minDate.getFullYear(), minDate.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
-          const month = new Date(current);
-          const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-          const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-          const firstDay = (firstDayRaw + 6) % 7; // Convert 0=Sun to 6=Sun, so 0=Mon
-          html += '<div class="calendar-grid">';
-          html += '<div class="month-header" style="grid-column: 1 / -1;">' + month.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'}) + '</div>';
-          html += '<div></div>'; // Empty cell for week number column
-          html += '<div class="weekday-label">Mo</div><div class="weekday-label">Di</div><div class="weekday-label">Mi</div><div class="weekday-label">Do</div><div class="weekday-label">Fr</div><div class="weekday-label">Sa</div><div class="weekday-label">So</div>';
-          let day = 1;
-          for (let week = 0; week < 6; week++) {
-            const firstDayOfWeek = getMondayOfCalendarRow(month, week, firstDay);
-            const [weekYear, weekNum] = getWeekNumber(firstDayOfWeek);
-            html += '<div class="week">';
-            html += '<div class="week-number">W' + weekNum + '</div>';
-            for (let wd = 0; wd < 7; wd++) {
-              if ((week === 0 && wd < firstDay) || day > daysInMonth) {
-                html += '<div class="day empty"></div>';
-              } else {
-                const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), day));
-                const dayTasks = dayPlans[dateStr] || [];
-                const stat = dayStats[dateStr] || { used: 0, capacity: getDayCapacity(dateStr) };
-                const utilization = stat.capacity > 0 ? stat.used / stat.capacity : 0;
-                const heatClass = getHeatClass(utilization);
-                const overrideClass = hasOverride(dateStr) ? ' override' : '';
-                const exceptionName = getExceptionName(dateStr);
-                const deadlineTasks = tasks.filter(t => t.deadline === dateStr);
-                html += `<div class="day-cell ${heatClass}${overrideClass}" data-date="${dateStr}" ondrop="drop(event)" ondragover="allowDrop(event)" title="Nutzung: ${Math.round(utilization * 100)}% | Verplant: ${formatHours(stat.used)} / ${formatHours(stat.capacity)}">`;
-                html += `<div class="day-number">${day}</div>`;
-                if (exceptionName) html += `<div class="exception-name">${exceptionName}</div>`;
-                if (deadlineTasks.length) html += `<div class="deadline-flag">${deadlineTasks.map(t => '🏁 ' + t.title).join(', ')}</div>`;
-                
-                const priorityColors = {
-                  1: { bg: '#1e3a8a', text: '#ffffff' },
-                  2: { bg: '#2563eb', text: '#ffffff' },
-                  3: { bg: '#3b82f6', text: '#ffffff' },
-                  4: { bg: '#93c5fd', text: '#1e3a8a' },
-                  5: { bg: '#dbeafe', text: '#1e3a8a' }
-                };
-                
-                dayTasks.forEach(task => {
-                  const height = (task.minutes / 60) * 20;
-                  const prio = parseInt(task.importance) || 1;
-                  const colors = priorityColors[prio] || priorityColors[1];
-                  const isDeadlineDay = (dateStr === task.deadline);
-                  const deadlineFlag = isDeadlineDay ? '<span style="font-size:1.1em; margin-left:5px;" title="Deadline!">🏁</span>' : '';
-                  
-                  html += `<div class="task-block" draggable="true" ondragstart="drag(event)" data-title="${task.title}" data-minutes="${task.minutes}" data-importance="${task.importance}" style="height:${height}px; background:${colors.bg}; color:${colors.text}; border-radius: 4px; padding: 2px 5px; font-size: 0.85em; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between;" title="${task.title} ${(task.minutes/60).toFixed(2)}h Prio ${prio}">
-                    <span>${task.title}</span>
-                    <span>${(task.minutes/60).toFixed(1)}h ${deadlineFlag}</span>
-                  </div>`;
-                });
-                html += '</div>';
-                day++;
-              }
-            }
-            html += '</div>';
-            if (day > daysInMonth) break;
-          }
-          html += '</div>';
-        }
-        html += '</div>';
-      }
-      html += '</div>';
-      
-      document.getElementById('result').innerHTML = html;
-      window.plan = results;
-      window.tasks = tasks;
-    }
-
-    // Auto-Save triggern
-    function enableAutoSave() {
-      document.addEventListener('change', () => {
-        localStorage.setItem('lernplan_autosave_tasks', JSON.stringify(
-          [...document.querySelectorAll('.task-row')].map(r => ({
-            title: r.querySelector('.t-title').value,
-            hours: r.querySelector('.t-hrs').value,
-            deadline: r.querySelector('.t-dl').value,
-            importance: r.querySelector('.t-imp').value
-          }))
-        ));
-        localStorage.setItem('lernplan_autosave_slots', JSON.stringify(
-          [...document.querySelectorAll('.slot-row')].map(r => ({
-            day: r.querySelector('.s-day').value,
-            hours: r.querySelector('.s-hrs').value
-          }))
-        ));
-        localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify(
-          [...document.querySelectorAll('.exception-row')].map(r => ({
-            name: r.querySelector('.e-name').value,
-            from: r.querySelector('.e-from').value,
-            to: r.querySelector('.e-to').value
-          }))
-        ));
-        localStorage.setItem('lernplan_autosave_overrides', JSON.stringify(
-          [...document.querySelectorAll('.override-row')].map(r => ({
-            year: parseInt(r.querySelector('.o-year').value),
-            week: parseInt(r.querySelector('.o-week').value),
-            slots: ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day => ({
-              day: day,
-              hours: parseFloat(r.querySelector(`.o-${day.toLowerCase()}`).value) || 0
-            }))
-          }))
-        ));
-      });
-    }
+    // simple auto-save
+    function enableAutoSave(){ document.addEventListener('change', ()=>{
+      localStorage.setItem('lernplan_autosave_tasks', JSON.stringify([...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, hours: r.querySelector('.t-hrs').value, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value }))));
+      localStorage.setItem('lernplan_autosave_slots', JSON.stringify([...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: r.querySelector('.s-hrs').value }))));
+      localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
+    }); }
     enableAutoSave();
 
-    document.getElementById('run-schedule').onclick = () => {
-      const tasks = [...document.querySelectorAll('.task-row')].map(r => ({
-        title: r.querySelector('.t-title').value,
-        minutes: r.querySelector('.t-hrs').value * 60,
-        deadline: r.querySelector('.t-dl').value,
-        importance: r.querySelector('.t-imp').value
-      })).filter(t => t.title && t.deadline);
-
-      const slots = [...document.querySelectorAll('.slot-row')].map(r => ({
-        day: r.querySelector('.s-day').value,
-        hours: r.querySelector('.s-hrs').value
-      })).filter(s => s.hours > 0);
-
-      const exceptions = [...document.querySelectorAll('.exception-row')].map(r => ({
-        name: r.querySelector('.e-name').value,
-        from: r.querySelector('.e-from').value,
-        to: r.querySelector('.e-to').value
-      })).filter(e => e.from && e.to);
-
-      const overrides = [...document.querySelectorAll('.override-row')].map(r => ({
-        year: parseInt(r.querySelector('.o-year').value),
-        week: parseInt(r.querySelector('.o-week').value),
-        slots: ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'].map(day => ({
-          day: day,
-          hours: parseFloat(r.querySelector(`.o-${day.toLowerCase()}`).value) || 0
-        }))
-      }));
-
-      if (tasks.length === 0) return alert("Bitte Aufgaben eingeben!");
-
-      window.slotMap = buildSlotMap(slots);
-      window.exceptions = exceptions;
-      window.overrides = overrides;
-      const results = schedule(tasks, slots, exceptions);
-      renderResults(results, tasks);
-    };
-
-    // Drag & Drop
-    function allowDrop(ev) {
-      ev.preventDefault();
-    }
-
-    function drag(ev) {
-      ev.dataTransfer.setData("text", ev.target.dataset.title);
-    }
-
-    function drop(ev) {
-      ev.preventDefault();
-      const title = ev.dataTransfer.getData("text");
-      const targetDate = ev.target.closest('.day-cell').dataset.date;
-      const dragged = document.querySelector(`[data-title="${title}"]`);
-      if (dragged && targetDate) {
-        const item = window.plan.find(p => p.title === title && p.status === 'assigned');
-        if (item) {
-          if (new Date(targetDate) > new Date(item.deadline)) {
-            alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
-            return;
-          }
-          // Move the element
-          ev.target.closest('.day-cell').appendChild(dragged);
-          // Update plan
-          item.date = targetDate;
-          // Re-render to update numbers
-          renderResults(window.plan, window.tasks);
-        }
-      }
-    }
-
+    // drag/drop support
+    function allowDrop(ev){ ev.preventDefault(); }
+    function drag(ev){ ev.dataTransfer.setData('text', ev.target.dataset.title); }
+    function drop(ev){ ev.preventDefault(); const title = ev.dataTransfer.getData('text'); const cell = ev.target.closest('.day-cell'); if(!cell) return; const targetDate = cell.dataset.date; const item = (window.plan||[]).find(p=>p.title===title && p.status==='assigned'); if(item){ if(new Date(targetDate) > new Date(item.deadline)){ alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`); return; } item.date = targetDate; renderMonthView(); }}
+    document.addEventListener('dragstart', e=>{ if(e.target.classList.contains('task-block')) drag(e); });
+    document.addEventListener('dragover', e=>{ if(e.target.closest('.day-cell')) allowDrop(e); });
+    document.addEventListener('drop', e=>{ if(e.target.closest('.day-cell')) drop(e); });
   </script>
 </body>
 </html>
