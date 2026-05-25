@@ -11,21 +11,35 @@
     .weekday-label{font-weight:700;text-align:center;color:#334155}
     .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:#475569;background:#eef2ff;border-radius:10px}
     .day.empty{background:transparent;border:none}
-    .day-cell{background:#fff;padding:10px;border-radius:10px;border:1px solid #e6e9f2;min-height:90px;display:flex;flex-direction:column}
+    .day-cell{background:#fff;padding:10px;border-radius:10px;border:1px solid #d1d5db;min-height:90px;display:flex;flex-direction:column}
     .day-number{font-weight:700;font-size:1rem;color:#0f172a}
     .today{background:linear-gradient(90deg, rgba(37,99,235,0.08), rgba(59,130,246,0.12));box-shadow:0 6px 14px rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.25)}
-    .capacity-bar{height:8px;background:#eef2ff;border-radius:6px;margin-top:6px;overflow:hidden}
-    .capacity-fill{height:100%;background:linear-gradient(90deg,var(--accent),#60a5fa);width:0%}
-    .day-cell.overloaded{border-color:#f87171;background:rgba(254,202,202,0.16)}
-    .day-cell.overloaded .capacity-fill{background:linear-gradient(90deg,#ef4444,#fca5a5)}
-    .task-block{margin-top:8px;padding:8px;border-radius:8px;background:#f8fafc;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .capacity-bar{height:8px;background:#eff6ff;border-radius:6px;margin-top:6px;overflow:hidden}
+    .capacity-fill{height:100%;width:0%;transition:width .3s ease}
+    .day-cell.overloaded{background:rgba(254,226,226,0.8);border-color:#d1d5db}
+    .day-cell.free-time{background:linear-gradient(180deg, rgba(209,250,229,0.85), rgba(255,255,255,0.95));border-color:#34d399}
+    .day-cell.partial-time{background:#fff;border-color:#d1d5db}
+    .day-cell.exception-day{background:repeating-linear-gradient(135deg, #f8fafc, #f8fafc 10px, #e2e8f0 10px, #e2e8f0 20px);border-color:#94a3b8;color:#475569;}
+    .day-cell.exception-day .day-number{color:#475569}
+    .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#cbd5e1;color:#334155;font-size:0.8rem;font-weight:700;display:inline-block}
+    .task-block{margin-top:8px;padding:10px 14px;border-radius:20px;background:linear-gradient(180deg, rgba(226,232,255,0.95), rgba(248,250,252,0.95));font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid rgba(148,163,184,0.35)}
     .task-title{font-weight:600;flex:1}
+    .deadline-banner{margin-top:8px;padding:10px;border-radius:12px;background:linear-gradient(90deg,#fb923c,#f97316);color:#7c2d12;font-weight:700;border:1px solid #fb923c;}
     .drag-handle{cursor:grab;padding:0 6px;color:#475569}
-    .priority-1{background:#1e3a8a;color:#fff}
-    .priority-2{background:#2563eb;color:#fff}
-    .priority-3{background:#3b82f6;color:#fff}
-    .priority-4{background:#93c5fd;color:#0f172a}
-    .priority-5{background:#dbeafe;color:#0f172a}
+    .task-progress{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:0.85rem;color:#334155}
+    .progress-bar{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}
+    .progress-fill{height:100%;width:0%;transition:width .3s ease}
+    .progress-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
+    .progress-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
+    .progress-fill.full{background:linear-gradient(90deg,#22c55e,#4ade80)}
+    .capacity-fill.low{background:linear-gradient(90deg,#4ade80,#86efac)}
+    .capacity-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
+    .capacity-fill.full{background:linear-gradient(90deg,#ef4444,#f87171)}
+    .priority-1{background:rgba(59,130,246,0.18);color:#1d4ed8}
+    .priority-2{background:rgba(37,99,235,0.15);color:#2563eb}
+    .priority-3{background:rgba(34,197,94,0.14);color:#15803d}
+    .priority-4{background:rgba(251,191,36,0.15);color:#b45309}
+    .priority-5{background:rgba(248,113,113,0.12);color:#b91c1c}
     .status-pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700;letter-spacing:.02em}
     .status-assigned{background:#dbf4ff;color:#0369a1}
     .status-overdue{background:#fee2e2;color:#b91c1c}
@@ -164,6 +178,28 @@
       const results = schedule(tasks, slots, exceptions);
       window.plan = results; window.tasks = tasks;
 
+      const assignedMinutes = tasks.map(() => 0);
+      results.filter(r => r.status === 'assigned').forEach(result => {
+        const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
+        if (idx >= 0) assignedMinutes[idx] += result.minutes;
+      });
+      document.querySelectorAll('.task-row').forEach((row, i) => {
+        const task = tasks[i];
+        if (!task) return;
+        let progress = row.querySelector('.task-progress');
+        if (!progress) {
+          progress = document.createElement('div');
+          progress.className = 'task-progress';
+          row.appendChild(progress);
+        }
+        const planned = assignedMinutes[i] || 0;
+        const total = task.minutes || 0;
+        const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
+        const ratio = total > 0 ? planned / total : 0;
+        const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
+        progress.innerHTML = `<div>${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h geplant</div><div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
+      });
+
       const month = new Date(currentMonthDate);
       const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
       const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
@@ -198,10 +234,12 @@
           const capacity = (window.slotMap && window.slotMap[new Date(dateStr).toLocaleDateString('de-DE',{weekday:'long'})]) || 0;
           const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
           const util = capacity > 0 ? used / capacity : 0;
-          if(capacity>0){ const capInfo=document.createElement('div'); capInfo.style.fontSize='0.85rem'; capInfo.style.margin='0.25rem 0'; capInfo.textContent = `${(used/60).toFixed(1)}h / ${(capacity/60).toFixed(1)}h verplant`; dayCell.appendChild(capInfo); const bar=document.createElement('div'); bar.className='capacity-bar'; const fill=document.createElement('div'); fill.className='capacity-fill'; fill.style.width = `${Math.min(100, Math.round(util * 100))}%`; if(util > 1){ dayCell.classList.add('overloaded'); } else if(util > 0.8){ fill.style.background = 'linear-gradient(90deg,#f97316,#fb923c)'; } bar.appendChild(fill); dayCell.appendChild(bar); }
-          if(capacity===0 && tasksForDay.length>0){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
+          const exception = exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
+          if(exception){ dayCell.classList.add('exception-day'); const label=document.createElement('div'); label.className='exception-label'; label.textContent = exception.name || 'Ausnahme'; dayCell.appendChild(label); }
+          if(capacity>0){ if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); } const capInfo=document.createElement('div'); capInfo.style.fontSize='0.85rem'; capInfo.style.margin='0.25rem 0'; capInfo.textContent = `${(used/60).toFixed(1)}h / ${(capacity/60).toFixed(1)}h verplant`; dayCell.appendChild(capInfo); const bar=document.createElement('div'); bar.className='capacity-bar'; const usedFill=document.createElement('div'); const ratioClass = util >= 1 ? 'full' : util >= 0.5 ? 'medium' : 'low'; usedFill.className = `capacity-fill ${ratioClass}`; usedFill.style.width = `${Math.min(100, Math.round(util * 100))}%`; bar.appendChild(usedFill); dayCell.appendChild(bar); if(util >= 1){ dayCell.classList.add('overloaded'); } }
+          if(capacity===0 && tasksForDay.length>0 && !exception){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
           tasksForDay.slice(0,2).forEach(t=>{ const tb=document.createElement('div'); const prio = Math.min(5, Math.max(1, parseInt(t.importance)||1)); tb.className=`task-block priority-${prio}`; tb.draggable=true; tb.dataset.title=t.title; tb.innerHTML = `<span class="drag-handle">☰</span><span class="task-title">${t.title}</span><span>${(t.minutes/60).toFixed(1)}h</span>`; dayCell.appendChild(tb); });
-          deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.style.marginTop='6px'; dl.style.fontSize='0.85rem'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
+          deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.className='deadline-banner'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
           if(tasksForDay.length>2){ const more=document.createElement('div'); more.style.fontSize='0.75rem'; more.style.marginTop='6px'; more.textContent = `+${tasksForDay.length-2} mehr`; dayCell.appendChild(more); }
           container.appendChild(dayCell);
         }
