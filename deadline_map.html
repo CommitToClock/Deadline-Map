@@ -119,14 +119,50 @@
     .priority-selector{gap:0.25rem;}
     .field-group label{font-size:0.85rem;color:var(--text-muted);}
     .task-row button, .slot-row button, .exception-row button{align-self:center;}
-    .dark body{background:#0f172a;color:#f8fafc}
-    .dark .day-cell{background:#1e293b;border-color:#334155}
-    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:#334155}
+    .dark body{background:#08101f;color:#e2e8f0}
+    .dark section.card-panel{background:#0f172a;border-color:#1e293b;}
+    .dark .toolbar, .dark .month-nav{background:transparent;}
+    .dark #month-title{color:#ffffff;}
+    .dark .month-nav{border-color:#1e293b;}
+    .dark .btn{background:#2563eb;color:#fff;border-color:transparent;}
+    .dark .btn:hover{background:#1d4ed8;}
+    .dark .btn-danger{background:transparent;color:#f97316;border-color:transparent;}
+    .dark .btn-danger:hover{background:rgba(249,115,22,0.14);}
+    .dark .day-cell{background:#111827;border-color:#1f2937;color:#e2e8f0}
+    .dark .day-cell.today{outline:2px solid #facc15;outline-offset:-2px;}
+    .dark .day-number{color:#cbd5e1}
+    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:#111827;border-color:#1f2937}
     .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
     .dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
     .dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
-    .dark input, .dark select{background:#0f172a;color:#f8fafc;border-color:#334155}
+    .dark input, .dark select{background:#111827;color:#e2e8f0;border-color:#334155}
     .dark .task-block{background:#111827}
+    .dark .task-row, .dark .slot-row, .dark .exception-row{background:#111827;border-color:#1f2937}
+    .dark .task-row.priority-1{background:rgba(59,130,246,0.08);border-color:#1d4ed8;}
+    .dark .task-row.priority-2{background:rgba(37,99,235,0.12);border-color:#2563eb;}
+    .dark .task-row.priority-3{background:rgba(30,64,175,0.16);border-color:#1d4ed8;}
+    .dark .task-row.priority-3 .field-group label,
+    .dark .task-row.priority-3 .field-group input,
+    .dark .task-row.priority-3 .field-group select{color:#c7d2fe;}
+    .dark .field-group label{color:#94a3b8;}
+    .dark .field-group input, .dark .field-group select{background:#111827;color:#e2e8f0;border-color:#334155;}
+    .dark .priority-selector button{background:#111827;color:#cbd5e1;border-color:#334155;}
+    .dark .priority-selector button.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
+    .dark .task-priority-pill{background:rgba(96,165,250,0.16);color:#bfdbfe;}
+    .dark .day-cell .task-block.priority-1{background:#172854;border-color:#1d4ed8;color:#bfdbfe;}
+    .dark .day-cell .task-block.priority-1 .task-priority-pill{background:rgba(59,130,246,0.24);color:#bfdbfe;}
+    .dark .day-cell .task-block.priority-2{background:#1e40af;border-color:#2563eb;color:#e0f2fe;}
+    .dark .day-cell .task-block.priority-2 .task-priority-pill{background:rgba(37,99,235,0.28);color:#e0f2fe;}
+    .dark .day-cell .task-block.priority-3{background:#1b2f6b;border-color:#2563eb;color:#fff;}
+    .dark .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
+    .dark .day-cell.free-time{background:#0b1f21;color:#a5f3fc;border-color:#0f766e;}
+    .dark .day-cell.partial-time{background:#0d1d34;color:#93c5fd;border-color:#2563eb;}
+    .dark .day-cell.overloaded{background:#31151d;color:#fecaca;border-color:#f87171;}
+    .dark .day-cell.exception-day{background:#111827;color:#bae6fd;border:1px solid #0ea5e9;}
+    .dark .capacity-bar{background:#152132;}
+    .dark .capacity-fill.low{background:linear-gradient(90deg,#22c55e,#4ade80);}
+    .dark .capacity-fill.medium{background:linear-gradient(90deg,#3b82f6,#60a5fa);}
+    .dark .capacity-fill.full{background:linear-gradient(90deg,#8b5cf6,#c084fc);}
 
     @media (max-width: 900px) {
       body{margin:1.25rem auto;padding:0 1rem;}
