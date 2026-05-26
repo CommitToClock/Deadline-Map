@@ -22,17 +22,18 @@
       --heat-high: #ffedd5;    /* Hohe Auslastung (Softes Pastellorange) */
       --heat-over: #fef2f2;    /* Überlastet / Ausnahme (Softes Pastellrot) */
     }
-    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:2rem auto;max-width:1400px;padding:0 1.5rem;background:var(--bg);color:var(--text)}
-    h1{font-size:2rem;font-weight:800;margin-bottom:1.5rem;letter-spacing:-0.03em;}
-    #month-title{font-size:1.05rem;font-weight:700;color:var(--text);}
-    section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:1rem;box-shadow:var(--shadow-sm);padding:1.5rem;margin-bottom:1.25rem}
-    #month-calendar{display:grid;grid-template-columns:60px repeat(7,1fr);gap:8px}
-    .weekday-label{font-weight:700;text-align:center;color:var(--text-muted);padding:0.6rem 0;letter-spacing:0.1em;text-transform:uppercase;background:var(--card);border-radius:1rem;box-shadow:var(--shadow-sm)}
-    .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--card);border:1px solid var(--border);border-radius:1rem;padding:0.7rem;box-shadow:var(--shadow-sm)}
+    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:0.75rem auto;max-width:1200px;padding:0 0.9rem;background:var(--bg);color:var(--text)}
+    h1{font-size:1.5rem;font-weight:800;margin-bottom:0.75rem;letter-spacing:-0.03em;}
+    #month-title{font-size:0.98rem;font-weight:700;color:var(--text);}
+    section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);padding:0.9rem;margin-bottom:0.65rem}
+    #month-calendar{display:grid;grid-template-columns:42px repeat(7,1fr);gap:0;grid-auto-rows:minmax(46px,auto);}
+    .weekday-label{font-weight:700;text-align:center;color:var(--text-muted);padding:0.08rem 0;letter-spacing:0.08em;text-transform:uppercase;background:var(--card);border:none;border-radius:0;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem;height:1rem;display:flex;align-items:center;justify-content:center}
+    .weekday-label:first-child{border-left:0}
+    .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--card);border:none;border-radius:0;padding:0.2rem 0.3rem;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem}
     .day.empty{background:transparent;border:none}
-    .day-cell{background:var(--card);padding:10px;border-radius:14px;border:1px solid var(--border);min-height:94px;display:flex;flex-direction:column;gap:6px}
+    .day-cell{background:var(--card);padding:6px;border-radius:12px;border:1px solid var(--border);min-height:62px;display:flex;flex-direction:column;gap:4px;line-height:1.2}
     .day-cell.today{outline:2px solid #f59e0b;outline-offset:-2px;}
-    .day-number{font-weight:700;font-size:0.95rem;color:var(--text)}
+    .day-number{font-weight:700;font-size:0.88rem;color:var(--text);line-height:1.1}
     .today{background:#fef3c7;border:1px solid #f59e0b}
     .capacity-bar{height:7px;background:var(--heat-none);border-radius:6px;margin-top:4px;overflow:hidden}
     .capacity-fill{height:100%;width:0%;transition:width .3s ease}
@@ -42,11 +43,11 @@
     .day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
     .day-cell.exception-day .day-number{color:#1e3a8a}
     .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
-    .task-block{margin-top:6px;padding:12px 16px;border-radius:20px;font-size:0.95rem;display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--border);min-height:52px}
-    .day-cell .task-block{padding:6px 8px;border-radius:14px;font-size:0.8rem;min-height:auto;gap:6px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
-    .day-cell .task-block .task-title{font-size:0.85rem}
-    .day-cell .task-block span:last-child{font-size:0.75rem;white-space:nowrap;}
-    .day-cell .deadline-banner{font-size:0.74rem;padding:6px 8px;}
+    .task-block{margin-top:6px;padding:6px 8px;border-radius:16px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border);min-height:40px;line-height:1.2}
+    .day-cell .task-block{padding:4px 6px;border-radius:12px;font-size:0.74rem;min-height:auto;gap:4px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
+    .day-cell .task-block .task-title{font-size:0.82rem}
+    .day-cell .task-block span:last-child{font-size:0.72rem;white-space:nowrap;}
+    .day-cell .deadline-banner{font-size:0.72rem;padding:5px 7px;line-height:1.2}
     .task-priority-pill{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:0 7px;height:22px;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.01em;}
     .day-cell .task-block.priority-1{background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;}
     .day-cell .task-block.priority-1 .task-priority-pill{background:#eff6ff;color:#1d4ed8;}
@@ -78,13 +79,14 @@
     .status-assigned{background:#dbf4ff;color:#0369a1}
     .status-overdue{background:#fee2e2;color:#b91c1c}
     .status-unassigned{background:#f8fafc;color:#475569}
-    .toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+    .bottom-panels{display:flex;gap:8px;flex-wrap:wrap;margin-top:0.6rem}
     .toolbar .toggle-btn{background:var(--accent);color:#fff;border:none}
-    .month-nav{padding:1rem 1.25rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:1rem;box-shadow:var(--shadow-sm);justify-content:center}
-    .month-nav button{min-width:45px}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;min-height:44px;padding:0.75rem 1.25rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease}
+    .month-nav{padding:0.45rem 0.7rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);justify-content:center}
+    .month-nav button{min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;min-height:20px;padding:0.25rem 0.45rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease;font-size:0.82rem;line-height:1.2}
     .btn:hover{background:#1d4ed8}
-    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1.25rem;height:1.25rem;font-size:1rem}
+    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;font-size:0.85rem}
     .btn-danger{background:transparent;color:#ef4444;border:none;font-weight:600;border-radius:0.5rem;padding:0.5rem 0.75rem;transition:background .2s ease}
     .btn-danger:hover{background:#fef2f2}
     input[type="number"], input[type="date"], input[type="text"], select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.75rem 1rem;color:var(--text);box-shadow:inset 0 1px 2px rgb(15 23 42 / 0.06);box-sizing:border-box;min-width:0;}
@@ -95,13 +97,13 @@
     .legend-dot{width:0.75rem;height:0.75rem;border-radius:999px;display:inline-block}
     .task-row, .slot-row, .exception-row{
       display:grid;
-      gap:0.75rem;
+      gap:0.6rem;
       align-items:center;
       margin-bottom:10px;
-      padding:14px;
+      padding:12px;
       background:var(--card);
       border:1px solid var(--border);
-      border-radius:14px;
+      border-radius:12px;
       box-shadow:0 1px 2px rgb(15 23 42 / 0.05);
     }
     .task-row.priority-1{background:rgba(219,234,254,0.18);border-color:#bfdbfe;}
@@ -110,9 +112,9 @@
     .task-row.priority-3 .field-group label,
     .task-row.priority-3 .field-group input,
     .task-row.priority-3 .field-group select{color:#1e3a8a;}
-    .task-row{grid-template-columns:2.6fr 0.85fr 1.2fr 0.9fr auto;}
-    .slot-row{grid-template-columns:1.2fr 1fr auto;}
-    .exception-row{grid-template-columns:1.3fr 1fr 1fr auto;}
+    .task-row{grid-template-columns:2.2fr 0.8fr 1fr 0.8fr auto;}
+    .slot-row{grid-template-columns:1.1fr 0.95fr auto;}
+    .exception-row{grid-template-columns:1.2fr 0.9fr 0.9fr auto;}
     .field-group{display:flex;flex-direction:column;gap:0.35rem;min-width:0;}
     .field-group input, .field-group select{width:100%;min-width:0;}
     .task-row input[type="date"]{min-width:0;}
@@ -165,39 +167,39 @@
     .dark .capacity-fill.full{background:linear-gradient(90deg,#8b5cf6,#c084fc);}
 
     @media (max-width: 900px) {
-      body{margin:1.25rem auto;padding:0 1rem;}
-      section.card-panel{padding:1rem;}
-      .toolbar{justify-content:center;gap:10px;}
-      .month-nav{flex-direction:column;gap:0.75rem;padding:0.85rem 1rem;}
-      .month-nav button{min-width:40px;}
+      body{margin:1rem auto;padding:0 0.85rem;}
+      section.card-panel{padding:0.9rem;}
+      .toolbar{justify-content:center;gap:8px;}
+      .month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
+      .month-nav button{min-width:34px;}
       .btn{width:100%;min-width:0;}
       .task-row, .slot-row, .exception-row{flex-direction:column;align-items:stretch;}
       .task-row input, .task-row select, .slot-row input, .slot-row select, .exception-row input, .exception-row select{width:100%;}
       .legend{flex-direction:column;align-items:flex-start;}
-      #month-calendar{grid-template-columns:40px repeat(7, minmax(0,1fr));gap:10px;}
-      .weekday-label{padding:0.6rem 0;}
-      .week-number{padding:0.7rem;}
-      .day-cell{min-height:100px;}
+      #month-calendar{grid-template-columns:38px repeat(7, minmax(0,1fr));gap:6px;}
+      .weekday-label{padding:0.45rem 0;}
+      .week-number{padding:0.6rem;}
+      .day-cell{min-height:88px;}
       .task-block{flex-direction:column;align-items:flex-start;}
     }
 
     @media (max-width: 600px) {
-      body{margin:1rem auto;padding:0 0.75rem;}
-      section.card-panel{padding:1rem;}
+      body{margin:0.85rem auto;padding:0 0.7rem;}
+      section.card-panel{padding:0.9rem;}
       .toolbar, .month-nav{flex-direction:column;align-items:stretch;}
-      .month-nav{gap:0.75rem;padding:0.85rem 1rem;}
-      .month-nav strong{display:block;margin:0.5rem 0;}
+      .month-nav{gap:0.6rem;padding:0.75rem 0.9rem;}
+      .month-nav strong{display:block;margin:0.4rem 0;}
       .btn{width:100%;}
       .month-nav button{min-width:0;}
-      #month-calendar{grid-template-columns:32px repeat(7, minmax(0,1fr));gap:6px;}
-      .weekday-label{font-size:0.72rem;padding:0.5rem 0;}
-      .week-number{padding:0.55rem;font-size:0.78rem;}
-      .day-cell{padding:10px;border-radius:12px;min-height:90px;}
+      #month-calendar{grid-template-columns:34px repeat(7, minmax(0,1fr));gap:5px;}
+      .weekday-label{font-size:0.72rem;padding:0.45rem 0;}
+      .week-number{padding:0.5rem;font-size:0.76rem;}
+      .day-cell{padding:8px;border-radius:12px;min-height:78px;}
       .day-number{font-size:0.9rem;}
       .legend{gap:0.5rem;font-size:0.85rem;}
       .legend-item{padding:0.45rem 0.75rem;}
-      .task-block{padding:10px 12px;}
-      .task-row, .slot-row, .exception-row{padding:10px;}
+      .task-block{padding:8px 10px;}
+      .task-row, .slot-row, .exception-row{padding:9px;}
       .toolbar > .btn{width:100%;}
     }
   </style>
@@ -221,18 +223,18 @@
     <div id="month-calendar"></div>
   </section>
 
-  <div style="display:flex;gap:16px;flex-wrap:wrap;">
-    <section class="card-panel" style="flex:1.1;min-width:300px;">
+  <div class="bottom-panels">
+    <section class="card-panel" style="flex:1.1;min-width:260px;">
       <h3>Aufgaben</h3>
       <div id="tasks"></div>
       <button id="add-task" class="btn">Aufgabe hinzufügen</button>
     </section>
-    <section class="card-panel" style="flex:0.8;min-width:240px;max-width:280px;">
+    <section class="card-panel" style="flex:0.8;min-width:210px;max-width:260px;">
       <h3>Slots</h3>
       <div id="slots"></div>
       <button id="add-slot" class="btn">Slot hinzufügen</button>
     </section>
-    <section class="card-panel" style="flex:1 1 100%;min-width:300px;max-width:none;">
+    <section class="card-panel" style="flex:1 1 100%;min-width:260px;max-width:none;">
       <h3>Ausnahmen</h3>
       <div id="exceptions"></div>
       <button id="add-exception" class="btn">Ausnahme hinzufügen</button>
