@@ -8,9 +8,17 @@
     :root {
       --bg: #f8fafc;           /* Sehr helles, modernes Grau-Blau für den Hintergrund */
       --card: #ffffff;         /* Reines Weiß für die Boxen und Kalendertage */
+      --surface: #f8fafc;
+      --surface-strong: #ffffff;
       --text: #0f172a;         /* Dunkles Schiefergrau für perfekte Lesbarkeit */
-      --text-muted: #64748b;
+      --text-muted: #475569;   /* besserer Kontrast für unterstützende Labels */
+      --text-soft: #64748b;    /* dezente, aber noch lesbare Hilfstexte */
       --accent: #2563eb;       /* Ein edles, klares Blau für primäre Buttons/Elemente */
+      --primary: #2563eb;
+      --secondary: #1d4ed8;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --danger: #ef4444;
       --today-bg: #fef08a;     /* Ein sanftes Pastellgelb für den heutigen Tag */
       --border: #e2e8f0;
       --focus: #3b82f6;
@@ -37,7 +45,7 @@
     .today{background:#fef3c7;border:1px solid #f59e0b}
     .capacity-bar{height:7px;background:var(--heat-none);border-radius:6px;margin-top:4px;overflow:hidden}
     .capacity-fill{height:100%;width:0%;transition:width .3s ease}
-    .day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+    .day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:var(--border)}
     .day-cell.free-time{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
     .day-cell.partial-time{background:#eff6ff;color:#1e3a8a;border-color:#93c5fd}
     .day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
@@ -45,26 +53,30 @@
     .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
     .task-block{margin-top:6px;padding:6px 8px;border-radius:16px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border);min-height:40px;line-height:1.2}
     .day-cell .task-block{padding:4px 6px;border-radius:12px;font-size:0.74rem;min-height:auto;gap:4px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
-    .day-cell .task-block .task-title{font-size:0.82rem}
+    .day-cell .task-block .task-title{font-size:0.82rem;color:var(--text)}
     .day-cell .task-block span:last-child{font-size:0.72rem;white-space:nowrap;}
-    .day-cell .deadline-banner{font-size:0.72rem;padding:5px 7px;line-height:1.2}
+    .day-cell .deadline-banner{font-size:0.72rem;padding:5px 7px;line-height:1.2;display:inline-flex;align-items:center;gap:0.35rem;}
+    .day-cell .deadline-banner::before{content:'🎯';display:inline-block;font-size:0.85rem;line-height:1;}
     .task-priority-pill{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:0 7px;height:22px;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.01em;}
-    .day-cell .task-block.priority-1{background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;}
-    .day-cell .task-block.priority-1 .task-priority-pill{background:#eff6ff;color:#1d4ed8;}
-    .day-cell .task-block.priority-2{background:#bfdbfe;border-color:#60a5fa;color:#1e40af;}
+    .day-cell .task-block.priority-1{background:#2563eb;border-color:#1d4ed8;color:#fff;box-shadow:0 1px 2px rgba(59,130,246,0.18);}
+    .day-cell .task-block.priority-1 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
+    .day-cell .task-block.priority-1 .task-title{color:#fff}
+    .day-cell .task-block.priority-2{background:#2563eb;border-color:#1d4ed8;color:#fff;}
     .day-cell .task-block.priority-2 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
+    .day-cell .task-block.priority-2 .task-title{color:#fff;}
     .day-cell .task-block.priority-3{background:#1d4ed8;border-color:#1e40af;color:#fff;}
     .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);}
     .day-cell .task-block.priority-3 .task-title{color:#fff}
-    .day-cell .task-block.priority-1 .task-title, .day-cell .task-block.priority-2 .task-title{color:#1d4ed8}
     .task-title{font-weight:600;flex:1}
     .deadline-banner{margin-top:8px;padding:10px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:1px solid var(--accent);}
-    .task-progress{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:0.85rem;color:var(--text)}
-    .progress-bar{height:10px;background:var(--border);border-radius:999px;overflow:hidden}
+    .progress-bar{height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative}
     .progress-fill{height:100%;width:0%;transition:width .3s ease}
     .progress-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
     .progress-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
     .progress-fill.full{background:linear-gradient(90deg,#22c55e,#4ade80)}
+    .task-progress{margin-top:0.8rem;display:flex;flex-direction:column;gap:0.35rem;}
+    .progress-title{font-size:0.86rem;font-weight:700;color:var(--text);}
+    .progress-summary{font-size:0.84rem;color:var(--text-muted);}
     .capacity-fill.low{background:linear-gradient(90deg,#4ade80,#86efac)}
     .capacity-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
     .capacity-fill.full{background:linear-gradient(90deg,#ef4444,#f87171)}
@@ -72,7 +84,7 @@
     .priority-2{background:#dbeafe;color:#1d4ed8}
     .priority-3{background:#93c5fd;color:#1e3a8a;font-weight:700}
     .priority-selector{display:flex;gap:0.4rem;}
-    .priority-selector button{flex:1;min-width:0;border:none;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;border-radius:0.85rem;font-weight:700;padding:0.7rem 0.6rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease}
+    .priority-selector button{flex:1;min-width:0;border:none;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:0.85rem;font-weight:700;padding:0.7rem 0.6rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease}
     .priority-selector button.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 10px 20px rgba(37,99,235,0.18)}
     .priority-selector button:hover{background:#e2e8f0}
     .status-pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700;letter-spacing:.02em}
@@ -86,10 +98,16 @@
     .month-nav button{min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;min-height:20px;padding:0.25rem 0.45rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease;font-size:0.82rem;line-height:1.2}
     .btn:hover{background:#1d4ed8}
+    button:disabled, .btn:disabled, .btn-danger:disabled{background:#e2e8f0;color:#64748b;border-color:#cbd5e1;cursor:not-allowed;}
     .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;font-size:0.85rem}
+    .button-tooltip{flex:1 1 240px;min-width:220px;width:auto;padding:0.55rem 0.9rem;border-radius:0.85rem;background:linear-gradient(180deg,#eff6ff,#dbeafe);color:#0f172a;font-size:0.88rem;border:1px solid #93c5fd;box-shadow:0 1px 6px rgba(15,23,42,0.12);font-weight:600;}
+    .toolbar .button-tooltip{margin-bottom:0;}
+    .dark .button-tooltip{background:linear-gradient(180deg,#374151,#111827);border-color:#4b5563;color:#f8fafc;box-shadow:0 1px 8px rgba(0,0,0,0.3);}
+    .button-tooltip::before{content:'ℹ️';margin-right:0.4rem;}
     .btn-danger{background:transparent;color:#ef4444;border:none;font-weight:600;border-radius:0.5rem;padding:0.5rem 0.75rem;transition:background .2s ease}
     .btn-danger:hover{background:#fef2f2}
     input[type="number"], input[type="date"], input[type="text"], select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.75rem 1rem;color:var(--text);box-shadow:inset 0 1px 2px rgb(15 23 42 / 0.06);box-sizing:border-box;min-width:0;}
+    input[type="number"]:disabled, input[type="date"]:disabled, input[type="text"]:disabled, select:disabled{background:#e2e8f0;color:#334155;border-color:#cbd5e1;}
     input[type="number"], input[type="date"], input[type="text"], select{transition:border-color .2s ease,box-shadow .2s ease}
     input:focus, select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,0.15)}
     .legend{display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:1rem;font-size:0.95rem;color:var(--text-muted)}
@@ -112,64 +130,95 @@
     .task-row.priority-3 .field-group label,
     .task-row.priority-3 .field-group input,
     .task-row.priority-3 .field-group select{color:#1e3a8a;}
+    .task-row.deadline-warning{border-color:#dc2626;background:rgba(254,226,226,0.18);box-shadow:0 0 0 1px rgba(220,38,38,0.12);}
+    .deadline-warning-label{display:block;font-size:0.82rem;font-weight:700;color:#b91c1c;margin-bottom:0.35rem;}
     .task-row{grid-template-columns:2.2fr 0.8fr 1fr 0.8fr auto;}
     .slot-row{grid-template-columns:1.1fr 0.95fr auto;}
     .exception-row{grid-template-columns:1.2fr 0.9fr 0.9fr auto;}
     .field-group{display:flex;flex-direction:column;gap:0.35rem;min-width:0;}
     .field-group input, .field-group select{width:100%;min-width:0;}
+    .section-description{font-size:0.92rem;color:var(--text-muted);margin-bottom:0.8rem;line-height:1.4;}
+    .info-icon{display:inline-flex;align-items:center;justify-content:center;margin-left:0.4rem;width:1.4rem;height:1.4rem;font-size:0.95rem;line-height:1;border-radius:999px;background:rgba(37,99,235,0.12);color:var(--text);cursor:help;}
+    .info-icon:hover{background:rgba(37,99,235,0.18);}
     .task-row input[type="date"]{min-width:0;}
     .priority-selector{gap:0.25rem;}
     .field-group label{font-size:0.85rem;color:var(--text-muted);}
     .task-row button, .slot-row button, .exception-row button{align-self:center;}
-    .dark body{background:#08101f;color:#e2e8f0}
-    .dark section.card-panel{background:#0f172a;border-color:#1e293b;}
-    .dark .toolbar, .dark .month-nav{background:transparent;}
-    .dark #month-title{color:#ffffff;}
+    .import-info{display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center;margin:0.5rem 0 1rem;color:var(--text-soft);font-size:0.9rem;}
+    .import-hint{font-weight:600;}
+    .import-note{opacity:0.85;}
+    .dark {
+      --bg: #020617;
+      --card: #0f172a;
+      --surface: #111827;
+      --surface-strong: #111827;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #60a5fa;
+      --primary: #60a5fa;
+      --secondary: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #f97316;
+      --border: #334155;
+      --focus: #60a5fa;
+      --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.25);
+    }
+    .dark body{background:var(--bg);color:var(--text)}
+    .dark section.card-panel{background:var(--card);border-color:#1e293b;}
+    .dark .toolbar, .dark .month-nav{background:var(--card);}
+    .dark #month-title{color:var(--text);}
     .dark .month-nav{border-color:#1e293b;}
-    .dark .btn{background:#2563eb;color:#fff;border-color:transparent;}
-    .dark .btn:hover{background:#1d4ed8;}
-    .dark .btn-danger{background:transparent;color:#f97316;border-color:transparent;}
-    .dark .btn-danger:hover{background:rgba(249,115,22,0.14);}
-    .dark .day-cell{background:#111827;border-color:#1f2937;color:#e2e8f0}
+    .dark .btn{background:var(--primary);color:#fff;border-color:transparent;}
+    .dark .btn:hover{background:var(--secondary);}
+    .dark .btn-danger{background:rgba(249,115,22,0.14);color:#fee2e2;border-color:transparent;}
+    .dark .btn-danger:hover{background:rgba(249,115,22,0.2);}
+    .dark .day-cell{background:var(--surface);border-color:#1f2937;color:var(--text);}
     .dark .day-cell.today{outline:2px solid #facc15;outline-offset:-2px;}
     .dark .day-number{color:#cbd5e1}
-    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:#111827;border-color:#1f2937}
+    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:var(--surface);border-color:#1f2937}
     .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
     .dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
     .dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
-    .dark input, .dark select{background:#111827;color:#e2e8f0;border-color:#334155}
-    .dark .task-block{background:#111827}
-    .dark .task-row, .dark .slot-row, .dark .exception-row{background:#111827;border-color:#1f2937}
-    .dark .task-row.priority-1{background:rgba(59,130,246,0.08);border-color:#1d4ed8;}
-    .dark .task-row.priority-2{background:rgba(37,99,235,0.12);border-color:#2563eb;}
-    .dark .task-row.priority-3{background:rgba(30,64,175,0.16);border-color:#1d4ed8;}
+    .dark input, .dark select{background:var(--surface);color:var(--text);border-color:#334155}
+    .dark .task-block{background:var(--surface);color:var(--text)}
+    .dark .task-row, .dark .slot-row, .dark .exception-row{background:var(--surface);border-color:#1f2937}
+    .dark .task-row.priority-1{background:rgba(96,165,250,0.12);border-color:#2563eb;}
+    .dark .task-row.priority-2{background:rgba(37,99,235,0.18);border-color:#2563eb;}
+    .dark .task-row.priority-3{background:rgba(37,99,235,0.24);border-color:#2563eb;}
+    .dark .task-row.deadline-warning{border-color:#f87171;background:rgba(248,113,113,0.08);box-shadow:0 0 0 1px rgba(248,113,113,0.14);}
     .dark .task-row.priority-3 .field-group label,
     .dark .task-row.priority-3 .field-group input,
-    .dark .task-row.priority-3 .field-group select{color:#c7d2fe;}
-    .dark .field-group label{color:#94a3b8;}
-    .dark .field-group input, .dark .field-group select{background:#111827;color:#e2e8f0;border-color:#334155;}
-    .dark .priority-selector button{background:#111827;color:#cbd5e1;border-color:#334155;}
-    .dark .priority-selector button.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
-    .dark .task-priority-pill{background:rgba(96,165,250,0.16);color:#bfdbfe;}
-    .dark .day-cell .task-block.priority-1{background:#172854;border-color:#1d4ed8;color:#bfdbfe;}
-    .dark .day-cell .task-block.priority-1 .task-priority-pill{background:rgba(59,130,246,0.24);color:#bfdbfe;}
-    .dark .day-cell .task-block.priority-2{background:#1e40af;border-color:#2563eb;color:#e0f2fe;}
-    .dark .day-cell .task-block.priority-2 .task-priority-pill{background:rgba(37,99,235,0.28);color:#e0f2fe;}
+    .dark .task-row.priority-3 .field-group select{color:#e2e8f0;}
+
+    .dark .field-group label{color:var(--text-muted);}
+    .dark .field-group input, .dark .field-group select{background:var(--surface);color:var(--text);border-color:#334155;}
+    .dark .priority-selector button{background:var(--surface);color:#cbd5e1;border-color:#334155;}
+    .dark .priority-selector button:hover{background:#1e293b;}
+    .dark .priority-selector button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+    .dark .task-priority-pill{background:rgba(96,165,250,0.2);color:#e0f2fe;}
+    .dark .day-cell .task-block.priority-1{background:#1d4ed8;border-color:#2563eb;color:#fff;}
+    .dark .day-cell .task-block.priority-1 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
+    .dark .day-cell .task-block.priority-1 .task-title{color:#fff;}
+    .dark .day-cell .task-block.priority-2{background:#1d4ed8;border-color:#2563eb;color:#fff;}
+    .dark .day-cell .task-block.priority-2 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
     .dark .day-cell .task-block.priority-3{background:#1b2f6b;border-color:#2563eb;color:#fff;}
     .dark .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
-    .dark .day-cell.free-time{background:#0b1f21;color:#a5f3fc;border-color:#0f766e;}
-    .dark .day-cell.partial-time{background:#0d1d34;color:#93c5fd;border-color:#2563eb;}
-    .dark .day-cell.overloaded{background:#31151d;color:#fecaca;border-color:#f87171;}
-    .dark .day-cell.exception-day{background:#111827;color:#bae6fd;border:1px solid #0ea5e9;}
+    .dark .day-cell.free-time{background:rgba(16, 185, 129, 0.14);color:#bbf7d0;border-color:#10b981;}
+    .dark .day-cell.partial-time{background:var(--surface);color:var(--text);border-color:#334155;}
+    .dark .day-cell.overloaded{background:var(--surface);color:var(--text);border-color:#334155;}
+    .dark .day-cell.exception-day{background:#1f2937;color:#c7d2fe;border:1px solid #475569;}
+    .dark .legend-item{background:var(--surface);border-color:#1f2937;color:var(--text);}
     .dark .capacity-bar{background:#152132;}
     .dark .capacity-fill.low{background:linear-gradient(90deg,#22c55e,#4ade80);}
     .dark .capacity-fill.medium{background:linear-gradient(90deg,#3b82f6,#60a5fa);}
-    .dark .capacity-fill.full{background:linear-gradient(90deg,#8b5cf6,#c084fc);}
+    .dark .capacity-fill.full{background:linear-gradient(90deg,#ef4444,#f87171);}
 
     @media (max-width: 900px) {
       body{margin:1rem auto;padding:0 0.85rem;}
       section.card-panel{padding:0.9rem;}
       .toolbar{justify-content:center;gap:8px;}
+      .toolbar > .button-tooltip{width:100%;}
       .month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
       .month-nav button{min-width:34px;}
       .btn{width:100%;min-width:0;}
@@ -206,13 +255,14 @@
 </head>
 <body>
   <h1>Lernplan & Kapazitäts-Check</h1>
-  <div class="toolbar">
+  <div class="toolbar" id="main-toolbar">
     <button id="save-data" class="btn"><span class="btn-icon">💾</span>Speichern</button>
     <button id="load-data" class="btn"><span class="btn-icon">📂</span>Laden</button>
     <button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
     <button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
     <button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
-    <input id="file-import" type="file" accept="application/json" style="display:none">
+    <div class="button-tooltip" id="toolbar-tooltip">Hover über einen Button für eine Kurzinfo.</div>
+    <input id="file-import" type="file" accept=".json,application/json" style="display:none">
   </div>
   <section class="card-panel">
     <div class="toolbar month-nav">
@@ -226,16 +276,19 @@
   <div class="bottom-panels">
     <section class="card-panel" style="flex:1.1;min-width:260px;">
       <h3>Aufgaben</h3>
+      <div class="section-description">Erfasse Aufgaben mit Titel, Dauer, Deadline und Priorität. Der Plan verteilt die Arbeit automatisch auf verfügbare Slot-Tage.</div>
       <div id="tasks"></div>
       <button id="add-task" class="btn">Aufgabe hinzufügen</button>
     </section>
     <section class="card-panel" style="flex:0.8;min-width:210px;max-width:260px;">
-      <h3>Slots</h3>
+      <h3>Slots <span class="info-icon" title="Ein Slot ist ein wiederkehrender Zeitblock an einem Wochentag, den du für Lernen reservierst.">ℹ️</span></h3>
+      <div class="section-description">Definiere hier deine täglichen verfügbaren Lernstunden für jeden Wochentag. Slots helfen der App, freie Zeiten für deine Aufgaben zu finden.</div>
       <div id="slots"></div>
       <button id="add-slot" class="btn">Slot hinzufügen</button>
     </section>
     <section class="card-panel" style="flex:1 1 100%;min-width:260px;max-width:none;">
-      <h3>Ausnahmen</h3>
+      <h3>Ausnahmen <span class="info-icon" title="Eine Ausnahme blockiert Tage, an denen du nicht lernen kannst, z. B. Feiertage, Termine oder Urlaub.">ℹ️</span></h3>
+      <div class="section-description">Trage blockierte Tage ein, an denen keine Kapazität zur Verfügung steht. Ausnahmen verhindern, dass an diesen Tagen Lernzeit eingeplant wird.</div>
       <div id="exceptions"></div>
       <button id="add-exception" class="btn">Ausnahme hinzufügen</button>
     </section>
@@ -245,6 +298,14 @@
     // helpers
     const toLocalISO = d => new Date(d).toLocaleDateString('sv-SE');
     const formatDateDE = ds => ds ? ds.split('-').reverse().join('.') : '';
+    const getTodayValue = () => {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    function setMinDateForPickers(){ const minDate = getTodayValue(); document.querySelectorAll('.t-dl, .e-from, .e-to').forEach(input => input.min = minDate); }
     function getWeekNumber(d) {
       d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -310,7 +371,7 @@
       document.getElementById('exceptions').innerHTML='';
       (data.tasks||[]).forEach(t=> {
         const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
-        createRow('tasks', `<div class="field-group"><label>Aufgabe</label><input class="t-title" value="${t.title}"></div><div class="field-group"><label>Stunden</label><input class="t-hrs" type="number" value="${(t.minutes||0)/60}"></div><div class="field-group"><label>Deadline</label><input class=\"t-dl\" type=\"date\" value=\"${t.deadline}\"></div><div class="field-group"><label>Prio</label><div class="priority-selector"><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"></div>`);
+        createRow('tasks', `<div class="field-group"><label>Aufgabe</label><input class="t-title" value="${t.title}"></div><div class="field-group"><label>Stunden</label><input class="t-hrs" type="number" value="${(t.minutes||0)/60}"></div><div class="field-group"><label>Deadline</label><input class=\"t-dl\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\"></div><div class="field-group"><label>Prio</label><div class="priority-selector"><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"></div>`);
       });
       (data.slots||[]).forEach(s=> {
         createRow('slots', `<div class="field-group"><label>Tag</label><select class="s-day"><option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option><option>Sonntag</option></select></div><div class="field-group"><label>Stunden/Tag</label><input class="s-hrs" type="number" value="${s.hours||0}"></div>`);
@@ -318,8 +379,10 @@
         const latest = rows[rows.length-1];
         if(latest) latest.querySelector('.s-day').value = s.day;
       });
-      (data.exceptions||[]).forEach(e=> createRow('exceptions', `<div class="field-group"><label>Grund</label><input class="e-name" value="${e.name}"></div><div class="field-group"><label>Von</label><input class="e-from" type="date" value="${e.from}"></div><div class="field-group"><label>Bis</label><input class="e-to" type="date" value="${e.to}"></div>`));
-      if(data.month){ const [year,month]=data.month.split('-'); currentMonthDate = new Date(Number(year), Number(month)-1,1); }
+      (data.exceptions||[]).forEach(e=> createRow('exceptions', `<div class="field-group"><label>Grund</label><input class="e-name" value="${e.name}"></div><div class="field-group"><label>Von</label><input class="e-from" type="date" min="${getTodayValue()}" value="${e.from}"></div><div class="field-group"><label>Bis</label><input class="e-to" type="date" min="${getTodayValue()}" value="${e.to}"></div>`));
+      setMinDateForPickers();
+      // Start always im aktuellen Monat, auch nach laden/importieren.
+      currentMonthDate = new Date(); currentMonthDate.setDate(1);
     }
     function saveData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); alert('Daten gespeichert.'); }
     function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
@@ -344,9 +407,12 @@
         const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
         if (idx >= 0) assignedMinutes[idx] += result.minutes;
       });
+      const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
       document.querySelectorAll('.task-row').forEach((row, i) => {
         const task = tasks[i];
         if (!task) return;
+        const warning = overdueTitles.has(task.title);
+        row.classList.toggle('deadline-warning', warning);
         let progress = row.querySelector('.task-progress');
         if (!progress) {
           progress = document.createElement('div');
@@ -358,7 +424,8 @@
         const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
         const ratio = total > 0 ? planned / total : 0;
         const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
-        progress.innerHTML = `<div>${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h geplant</div><div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
+        const warningHtml = warning ? '<div class="deadline-warning-label">⚠️ Achtung: Deadline gefährdet!</div>' : '';
+        progress.innerHTML = `${warningHtml}<div class="progress-title">Geplante Stunden</div><div class="progress-summary">${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h geplant</div><div class="progress-bar" title="Geplante Stunden: ${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
       });
 
       const month = new Date(currentMonthDate);
@@ -419,11 +486,23 @@
     document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
     document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
     document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
+    const toolbarTooltip = document.getElementById('toolbar-tooltip');
+    const hoverText = {
+      'save-data': 'Speichert den aktuellen Lernplan im lokalen Speicher.',
+      'load-data': 'Lädt den zuletzt gespeicherten Lernplan.',
+      'export-data': 'Exportiert die aktuellen Daten als JSON-Datei.',
+      'import-data': 'Importiert einen gespeicherten Lernplan aus einer JSON-Datei.',
+      'toggle-dark': 'Wechselt zwischen hellem und dunklem Modus.'
+    };
+    document.querySelectorAll('#main-toolbar button').forEach(btn=>{
+      btn.addEventListener('mouseenter', ()=> { toolbarTooltip.textContent = hoverText[btn.id] || 'Info nicht verfügbar.'; });
+      btn.addEventListener('mouseleave', ()=> { toolbarTooltip.textContent = 'Hover über einen Button für eine Kurzinfo.'; });
+    });
 
     document.getElementById('add-task').addEventListener('click', ()=> createRow('tasks', `
       <div class="field-group"><label>Aufgabe</label><input class="t-title" placeholder="Aufgabe"></div>
       <div class="field-group"><label>Stunden</label><input class="t-hrs" type="number" step="0.25" value="0"></div>
-      <div class="field-group"><label>Deadline</label><input class="t-dl" type="date"></div>
+      <div class="field-group"><label>Deadline</label><input class="t-dl" type="date" min="${getTodayValue()}"></div>
       <div class="field-group"><label>Prio</label><div class="priority-selector"><button type="button" class="prio-btn active" data-priority="1">!</button><button type="button" class="prio-btn" data-priority="2">!!</button><button type="button" class="prio-btn" data-priority="3">!!!</button></div><input class="t-imp" type="hidden" value="1"></div>
     `));
 
@@ -436,8 +515,8 @@
 
     document.getElementById('add-exception').addEventListener('click', ()=> createRow('exceptions', `
       <div class="field-group"><label>Grund</label><input class="e-name" placeholder="Grund"></div>
-      <div class="field-group"><label>Von</label><input class="e-from" type="date"></div>
-      <div class="field-group"><label>Bis</label><input class="e-to" type="date"></div>
+      <div class="field-group"><label>Von</label><input class="e-from" type="date" min="${getTodayValue()}"></div>
+      <div class="field-group"><label>Bis</label><input class="e-to" type="date" min="${getTodayValue()}"></div>
     `));
 
     document.addEventListener('input', renderMonthView);
