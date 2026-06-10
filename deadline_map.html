@@ -19,7 +19,7 @@
       --success: #16a34a;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --today-bg: #fef08a;     /* Ein sanftes Pastellgelb für den heutigen Tag */
+      --today-bg: #f5d0fe;     /* Klarer Violett-Akzent für den heutigen Tag */
       --border: #e2e8f0;
       --focus: #3b82f6;
       --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.08);
@@ -41,14 +41,17 @@
     .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--card);border:none;border-radius:0;padding:0.2rem 0.3rem;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem}
     .day.empty{background:transparent;border:none}
     .day-cell{background:var(--card);padding:6px;border-radius:12px;border:1px solid var(--border);min-height:62px;display:flex;flex-direction:column;gap:4px;line-height:1.2}
-    .day-cell.today{outline:2px solid #f59e0b;outline-offset:-2px;}
+    .day-cell.today{outline:3px solid #c026d3;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.85),0 0 0 2px rgba(192,38,211,0.18);}
+    .day-header{display:flex;align-items:center;justify-content:space-between;gap:0.4rem;}
     .day-number{font-weight:700;font-size:0.88rem;color:var(--text);line-height:1.1}
-    .today{background:#fef3c7;border:1px solid #f59e0b}
-    .capacity-bar{height:7px;background:var(--heat-none);border-radius:6px;margin-top:4px;overflow:hidden}
-    .capacity-fill{height:100%;width:0%;transition:width .3s ease}
-    .day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:var(--border)}
+    .capacity-info{font-size:0.72rem;font-weight:700;line-height:1.1;white-space:nowrap;color:var(--text-muted);}
     .day-cell.free-time{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
-    .day-cell.partial-time{background:#eff6ff;color:#1e3a8a;border-color:#93c5fd}
+    .day-cell.partial-time{background:#fef3c7;color:#92400e;border-color:#fbbf24}
+    .day-cell.util-low{background:#ecfdf5;border-color:#bbf7d0}
+    .day-cell.util-medium{background:#fef3c7;border-color:#fbbf24}
+    .day-cell.util-full{background:#ffedd5;border-color:#fb923c}
+    .day-cell.util-over,
+    .day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
     .day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
     .day-cell.exception-day .day-number{color:#1e3a8a}
     .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
@@ -75,9 +78,6 @@
     .progress-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
     .progress-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
     .progress-fill.full{background:linear-gradient(90deg,#22c55e,#4ade80)}
-    .capacity-fill.low{background:linear-gradient(90deg,#4ade80,#86efac)}
-    .capacity-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
-    .capacity-fill.full{background:linear-gradient(90deg,#ef4444,#f87171)}
     .priority-1{background:#eff6ff;color:#1d4ed8}
     .priority-2{background:#dbeafe;color:#1d4ed8}
     .priority-3{background:#93c5fd;color:#1e3a8a;font-weight:700}
@@ -192,6 +192,20 @@
       margin-left: 12px;
       flex-shrink: 0;
     }
+    .field-group{display:flex;align-items:center;gap:6px;min-width:0;}
+    .field-group label{font-size:0.82rem;font-weight:600;white-space:nowrap;color:#1e293b;}
+    #slots{display:grid;grid-template-columns:repeat(7,minmax(84px,1fr));gap:6px;align-items:stretch;}
+    .slot-row.card{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-bottom:0;overflow:visible;padding:8px 10px;text-align:center;}
+    .slot-day-label{font-weight:800;font-size:0.78rem;letter-spacing:0.04em;text-transform:uppercase;color:#1e293b;}
+    .slot-input-label{font-size:0.72rem;font-weight:700;color:#475569;}
+    .slot-input-wrap{display:flex;align-items:center;justify-content:center;gap:4px;}
+    .slot-row input[type="number"]{width:3.8rem !important;min-width:3.8rem !important;max-width:3.8rem;text-align:center;padding-left:0.45rem;padding-right:0.45rem;}
+    .slot-unit{font-size:0.82rem;font-weight:800;color:#475569;}
+    .form-error{display:none;margin:0 0 8px;padding:8px 10px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:0.84rem;font-weight:700;}
+    .form-error.visible{display:block;}
+    .exception-row.card{gap:10px;margin-bottom:4px;}
+    .exception-row input[type="text"]{width:220px !important;}
+    .exception-row .delete-btn{margin-left:auto;}
 
     .calendar-day .red-line,
     .calendar-day::before,
@@ -242,7 +256,7 @@
     .dark .btn-danger{background:rgba(249,115,22,0.14);color:#fee2e2;border-color:transparent;}
     .dark .btn-danger:hover{background:rgba(249,115,22,0.2);}
     .dark .day-cell{background:var(--surface);border-color:#1f2937;color:var(--text);}
-    .dark .day-cell.today{outline:2px solid #facc15;outline-offset:-2px;}
+    .dark .day-cell.today{outline:3px solid #f0abfc;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.95),0 0 0 2px rgba(240,171,252,0.35);}
     .dark .day-number{color:#cbd5e1}
     .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:var(--surface);border-color:#1f2937}
     .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
@@ -255,6 +269,10 @@
     .dark .card.priority-2{background:rgba(37,99,235,0.18);border-color:#2563eb;}
     .dark .card.priority-3{background:rgba(37,99,235,0.24);border-color:#2563eb;}
     .dark .card.deadline-warning{border-color:#f87171;background:rgba(248,113,113,0.08);box-shadow:0 0 0 1px rgba(248,113,113,0.14);}
+    .dark .slot-day-label,
+    .dark .slot-input-label,
+    .dark .slot-unit{color:#fff;}
+    .dark .form-error{border-color:#7f1d1d;background:rgba(127,29,29,0.35);color:#fff;}
 
     .dark .field-group label{color:var(--text-muted);}
     .dark .field-group input, .dark .field-group select{background:var(--surface);color:var(--text);border-color:#334155;}
@@ -270,22 +288,22 @@
     .dark .day-cell .task-block.priority-3{background:#1b2f6b;border-color:#2563eb;color:#fff;}
     .dark .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
     .dark .day-cell.free-time{background:rgba(16, 185, 129, 0.14);color:#bbf7d0;border-color:#10b981;}
-    .dark .day-cell.partial-time{background:var(--surface);color:var(--text);border-color:#334155;}
-    .dark .day-cell.overloaded{background:var(--surface);color:var(--text);border-color:#334155;}
+    .dark .day-cell.partial-time{background:rgba(245, 158, 11, 0.18);color:var(--text);border-color:#f59e0b;}
+    .dark .day-cell.overloaded{background:rgba(239, 68, 68, 0.18);color:var(--text);border-color:#ef4444;}
     .dark .day-cell.exception-day{background:#1f2937;color:#c7d2fe;border:1px solid #475569;}
     .dark .legend-item{background:var(--surface);border-color:#1f2937;color:var(--text);}
-    .dark .capacity-bar{background:#152132;}
-    .dark .capacity-fill.low{background:linear-gradient(90deg,#22c55e,#4ade80);}
-    .dark .capacity-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c);}
-    .dark .capacity-fill.full{background:linear-gradient(90deg,#ef4444,#f87171);}
+    .dark .day-cell.util-low{background:rgba(16, 185, 129, 0.14);border-color:#10b981;}
+    .dark .day-cell.util-medium{background:rgba(245, 158, 11, 0.18);border-color:#f59e0b;}
+    .dark .day-cell.util-full{background:rgba(249, 115, 22, 0.2);border-color:#fb923c;}
+    .dark .day-cell.util-over{background:rgba(239, 68, 68, 0.18);border-color:#ef4444;}
     .dark,
     .dark * {
-      color: #fff !important;
+      color:#fff !important;
     }
     .dark input::placeholder,
     .dark textarea::placeholder {
-      color: #fff !important;
-      opacity: 0.8;
+      color:#fff !important;
+      opacity:0.8;
     }
 
     @media (max-width: 900px) {
@@ -302,6 +320,7 @@
       .week-number{padding:0.6rem;}
       .day-cell{min-height:88px;}
       .task-block{flex-direction:column;align-items:flex-start;}
+      #slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
     }
 
     @media (max-width: 600px) {
@@ -321,6 +340,7 @@
       .legend-item{padding:0.45rem 0.75rem;}
       .task-block{padding:8px 10px;}
       .toolbar > .btn{width:100%;}
+      #slots{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
   </style>
 </head>
@@ -357,6 +377,7 @@
       <div id="tasks"></div>
     </section>
     <section class="card-panel tab-content" id="slots-panel" data-tab="slots">
+      <div id="slots-error" class="form-error" role="alert"></div>
       <div id="slots"></div>
     </section>
     <section class="card-panel tab-content" id="exceptions-panel" data-tab="exceptions">
@@ -388,7 +409,7 @@
     }
 
     // small utilities
-    function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=Math.round((Number(s.hours)||0)*60)); return m; }
+    function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=(Number(s.hours)||0)*60); return m; }
 
     // scheduling algorithm (kept simple)
     function schedule(tasks, slots, exceptions){
@@ -424,7 +445,7 @@
       deleteBtn.className = 'btn btn-danger delete-btn';
       deleteBtn.type = 'button';
       deleteBtn.textContent = '✕';
-      deleteBtn.onclick = () => div.remove();
+      deleteBtn.onclick = () => { div.remove(); renderMonthView(); };
       const rightCol = div.querySelector('.task-col-right');
       if (rightCol) rightCol.appendChild(deleteBtn); else div.appendChild(deleteBtn);
       document.getElementById(containerId).appendChild(div);
@@ -446,14 +467,40 @@
       <div class="progress-container"></div>
       <div class="danger-badge"></div>
     `); }
-    function addSlotRow(){
-      const rowId = `row-${++taskRowIndex}`;
-      createRow('slots', `
-      <div class="field-group"><label for="${rowId}-day" class="slot-label">Wochentag</label><select id="${rowId}-day" class="s-day" aria-label="Wochentag" title="Wochentag">
-        <option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option><option>Sonntag</option>
-      </select></div>
-      <div class="field-group input-small"><label for="${rowId}-hours" class="stunden-label">Stunden</label><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="0" placeholder="0" aria-label="Stunden" title="Stunden"></div>
-    `); }
+    const weekdays = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+    const weekdayShort = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+    function normalizeHoursValue(value){
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return 0;
+      const clamped = Math.min(99.75, Math.max(0, numeric));
+      return Math.round(clamped * 4) / 4;
+    }
+    function formatHoursValue(hours){
+      const normalized = normalizeHoursValue(hours);
+      return Number.isInteger(normalized) ? String(normalized) : String(normalized);
+    }
+    function sanitizeHourInput(input){
+      input.value = formatHoursValue(normalizeHoursValue(input.value));
+    }
+    function renderSlotGrid(slots = []){
+      const slotValues = new Map((slots || []).map(slot => [slot.day, slot.hours]));
+      const container = document.getElementById('slots');
+      if (!container) return;
+      container.innerHTML = '';
+      weekdays.forEach((day, index) => {
+        const rowId = `slot-${day.toLowerCase()}`;
+        const div = document.createElement('div');
+        div.className = 'slot-row card';
+        div.innerHTML = `
+          <label class="slot-day-label" for="${rowId}-hours" title="${day}">${weekdayShort[index]}</label>
+          <span class="slot-input-label">Lernzeit</span>
+          <input class="s-day" type="hidden" value="${day}">
+          <div class="slot-input-wrap"><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slotValues.get(day) || 0)}" placeholder="0" aria-label="Stunden am ${day}" title="Stunden am ${day}"><span class="slot-unit">h</span></div>
+        `;
+        container.appendChild(div);
+      });
+    }
+    function addSlotRow(){ renderSlotGrid(getSlotsFromUI()); }
     function addExceptionRow(){
       const rowId = `exception-row-${++taskRowIndex}`;
       createRow('exceptions', `
@@ -464,9 +511,9 @@
     function setActiveTab(tab){
       document.querySelectorAll('.tab-button').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab===tab));
       document.querySelectorAll('.tab-content').forEach(panel=> panel.classList.toggle('active', panel.dataset.tab===tab));
-      const labels = { tasks: '+ Aufgabe hinzufügen', slots: '+ Slot hinzufügen', exceptions: '+ Ausnahme hinzufügen' };
+      const labels = { tasks: '+ Aufgabe hinzufügen', slots: '', exceptions: '+ Ausnahme hinzufügen' };
       const label = labels[tab] || '+ Aufgabe hinzufügen';
-      const add = document.getElementById('tab-add'); if(add) add.textContent = label;
+      const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = tab === 'slots' ? 'none' : ''; }
     }
     function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='slots') addSlotRow(); else if(activeTab==='exceptions') addExceptionRow(); }
     document.addEventListener('click', e => {
@@ -482,9 +529,17 @@
       row.classList.remove('priority-1','priority-2','priority-3');
       row.classList.add(`priority-${btn.dataset.priority}`);
     });
-    function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: parseFloat(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
-    function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: parseFloat(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
+    function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
+    function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
     function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
+    function validateSlotRows(){
+      const error = document.getElementById('slots-error');
+      if (error) {
+        error.textContent = '';
+        error.classList.remove('visible');
+      }
+      return true;
+    }
 
     function getFormData(){ return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
@@ -494,15 +549,9 @@
       (data.tasks||[]).forEach(t=> {
         const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
         const rowId = `task-row-${++taskRowIndex}`;
-        createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${(t.minutes||0)/60}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
+        createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
       });
-      (data.slots||[]).forEach(s=> {
-        const rowId = `row-${++taskRowIndex}`;
-        createRow('slots', `<div class="field-group"><label for="${rowId}-day" class="slot-label">Wochentag</label><select id="${rowId}-day" class="s-day" aria-label="Wochentag" title="Wochentag"><option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option><option>Sonntag</option></select></div><div class="field-group input-small"><label for="${rowId}-hours" class="stunden-label">Stunden</label><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${s.hours||0}" placeholder="0" aria-label="Stunden" title="Stunden"></div>`);
-        const rows = document.querySelectorAll('.slot-row');
-        const latest = rows[rows.length-1];
-        if(latest) latest.querySelector('.s-day').value = s.day;
-      });
+      renderSlotGrid(data.slots || []);
       (data.exceptions||[]).forEach(e=> {
         const rowId = `exception-row-${++taskRowIndex}`;
         createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
@@ -535,6 +584,7 @@
       const tasks = getTasksFromUI();
       const slots = getSlotsFromUI();
       const exceptions = getExceptionsFromUI();
+      validateSlotRows();
       window.slotMap = buildSlotMap(slots);
       window.exceptions = exceptions;
       const overrides = window.taskDateOverrides || {};
@@ -568,7 +618,7 @@
         const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
         const ratio = total > 0 ? planned / total : 0;
         const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
-        progress.innerHTML = `<div class="progress-info">${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h geplant</div><div class="progress-bar-bg" title="Geplante Stunden: ${(planned/60).toFixed(1)}h von ${(total/60).toFixed(1)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
+        progress.innerHTML = `<div class="progress-info">${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h geplant</div><div class="progress-bar-bg" title="Geplante Stunden: ${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
       });
 
       const month = new Date(currentMonthDate);
@@ -599,7 +649,9 @@
           if(dateIndex < 1 || dateIndex > daysInMonth){ const empty=document.createElement('div'); empty.className='day empty'; container.appendChild(empty); continue; }
           const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), dateIndex));
           const dayCell = document.createElement('div'); dayCell.className='day-cell'; dayCell.dataset.date = dateStr; if(dateStr===todayStr) dayCell.classList.add('today');
-          const header = document.createElement('div'); header.className='day-number'; header.textContent = dateIndex; dayCell.appendChild(header);
+          const header = document.createElement('div'); header.className='day-header';
+          const dayNumber = document.createElement('div'); dayNumber.className='day-number'; dayNumber.textContent = dateIndex; header.appendChild(dayNumber);
+          dayCell.appendChild(header);
           const tasksForDay = dayPlans[dateStr]||[];
           const deadlineForDay = deadlineTasks[dateStr]||[];
           const capacity = (window.slotMap && window.slotMap[new Date(dateStr).toLocaleDateString('de-DE',{weekday:'long'})]) || 0;
@@ -607,9 +659,18 @@
           const util = capacity > 0 ? used / capacity : 0;
           const exception = exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
           if(exception){ dayCell.classList.add('exception-day'); const label=document.createElement('div'); label.className='exception-label'; label.textContent = exception.name || 'Ausnahme'; dayCell.appendChild(label); }
-          if(capacity>0){ if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); } const capInfo=document.createElement('div'); capInfo.style.fontSize='0.85rem'; capInfo.style.margin='0.25rem 0'; capInfo.textContent = `${(used/60).toFixed(1)}h / ${(capacity/60).toFixed(1)}h verplant`; dayCell.appendChild(capInfo); const bar=document.createElement('div'); bar.className='capacity-bar'; const usedFill=document.createElement('div'); const ratioClass = util > 1 ? 'full' : util >= 0.5 ? 'medium' : 'low'; usedFill.className = `capacity-fill ${ratioClass}`; usedFill.style.width = `${Math.min(100, Math.round(util * 100))}%`; bar.appendChild(usedFill); dayCell.appendChild(bar); if(util > 1){ dayCell.classList.add('overloaded'); } }
+          if(capacity>0){
+            const utilClass = util > 1 ? 'util-over' : util >= 1 ? 'util-full' : util >= 0.5 ? 'util-medium' : 'util-low';
+            dayCell.classList.add(utilClass);
+            if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); }
+            if(util > 1){ dayCell.classList.add('overloaded'); }
+            const capInfo=document.createElement('div');
+            capInfo.className='capacity-info';
+            capInfo.textContent = `${formatHoursValue(used/60)} / ${formatHoursValue(capacity/60)}h`;
+            header.appendChild(capInfo);
+          }
           if(capacity===0 && tasksForDay.length>0 && !exception){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
-          tasksForDay.slice(0,2).forEach(t=>{ const tb=document.createElement('div'); const prio = Math.min(3, Math.max(1, parseInt(t.importance)||1)); tb.className=`calendar-task task-block priority-${prio}`; tb.dataset.originalKey = t.__originalKey || ''; if (window.completedTaskKeys && window.completedTaskKeys.has(t.__originalKey)) tb.classList.add('task-done'); tb.draggable = true; tb.dataset.id = t.id; tb.dataset.title = t.title; const badge = '!'.repeat(prio); tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${t.title}</span><span>${(t.minutes/60).toFixed(1)}h</span>`; dayCell.appendChild(tb); });
+          tasksForDay.slice(0,2).forEach(t=>{ const tb=document.createElement('div'); const prio = Math.min(3, Math.max(1, parseInt(t.importance)||1)); tb.className=`calendar-task task-block priority-${prio}`; tb.dataset.originalKey = t.__originalKey || ''; if (window.completedTaskKeys && window.completedTaskKeys.has(t.__originalKey)) tb.classList.add('task-done'); tb.draggable = true; tb.dataset.id = t.id; tb.dataset.title = t.title; const badge = '!'.repeat(prio); tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${t.title}</span><span>${formatHoursValue(t.minutes/60)}h</span>`; dayCell.appendChild(tb); });
           deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.className='deadline-banner'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
           if(tasksForDay.length>2){ const more=document.createElement('div'); more.style.fontSize='0.75rem'; more.style.marginTop='6px'; more.textContent = `+${tasksForDay.length-2} mehr`; dayCell.appendChild(more); }
           container.appendChild(dayCell);
@@ -646,8 +707,12 @@
     document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 
     document.addEventListener('input', renderMonthView);
-    document.addEventListener('change', renderMonthView);
-    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderMonthView();
+    document.addEventListener('change', e => {
+      const hoursInput = e.target.closest('.input-hours');
+      if (hoursInput) sanitizeHourInput(hoursInput);
+      renderMonthView();
+    });
+    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid(getSlotsFromUI()); renderMonthView();
       const calendarContainer = document.getElementById('month-calendar');
       if (calendarContainer){
         calendarContainer.addEventListener('click', e => {
