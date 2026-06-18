@@ -425,6 +425,7 @@
       return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
     function getCapacityForDate(dateStr, slotMap = window.slotMap || {}) {
+      if (dateStr < toLocalISO(new Date())) return 0;
       if (isException(dateStr)) return 0;
       const date = new Date(dateStr);
       const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
