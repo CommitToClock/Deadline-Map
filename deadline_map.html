@@ -477,7 +477,7 @@ minutes: item.minutes,
 status: item.status,
 importance: item.importance,
 deadline: item.deadline,
-taskKey: item.taskKey,
+taskKey: item.taskKey, // Preserve taskKey (task._id)
 __originalKey: item.__originalKey
 };
 }
@@ -487,9 +487,9 @@ window.planSnapshots = window.planSnapshots || {};
 const currentItems = results
 .filter(item => item.status === 'assigned' && item.date === todayStr)
 .map(freezePlanItem);
-const currentKeys = new Set(currentItems.map(item => item.__originalKey));
+const currentKeys = new Set(currentItems.map(item => item.__originalKey)); // Use __originalKey (unique block ID)
 const preservedDoneItems = (window.planSnapshots[todayStr] || [])
-.filter(item => window.completedTaskKeys.has(item.__originalKey) && !currentKeys.has(item.__originalKey));
+.filter(item => window.completedTaskKeys.has(item.__originalKey) && !currentKeys.has(item.__originalKey)); // Use __originalKey
 window.planSnapshots[todayStr] = [...preservedDoneItems, ...currentItems];
 }
 function mergeHistoricalSnapshots(results) {
@@ -501,8 +501,18 @@ return [...historical, ...results];
 }
 function getCompletedMinutesByTaskKey() {
 const totals = {};
+const seen = new Set();
 Object.values(window.planSnapshots || {}).flat().forEach(item => {
+if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return; // Use __originalKey
+if (seen.has(item.__originalKey)) return;
+seen.add(item.__originalKey);
+const key = getTaskArchiveKey(item); // This will be item.taskKey (task._id)
+totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
+});
+Object.values(window.completedTaskItems || {}).forEach(item => {
 if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return;
+if (seen.has(item.__originalKey)) return;
+seen.add(item.__originalKey);
 const key = getTaskArchiveKey(item);
 totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
 });
@@ -524,30 +534,67 @@ if (date < todayStr) delete window.reservedCapacityByDate[date];
 }
 
 // scheduling algorithm (kept simple)
-function schedule(tasks, slots, exceptions){
-if(!tasks||tasks.length===0) return [];
-const plan=[];
+function schedule(tasks, slots, exceptions, lockedItems = []){
+const plan = [...lockedItems].map(item => ({ ...item, status: 'assigned', locked: true }));
+if(!tasks||tasks.length===0) return plan;
+
 const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const taskBlockedDays = {}; 
+const lockedByDate = {};
+
+plan.forEach(item => {
+  lockedByDate[item.date] = (lockedByDate[item.date] || 0) + (item.minutes || 0);
+  const taskKey = getTaskArchiveKey(item);
+  
+  // Wenn ein Item ein originalDate hat, das nicht dem aktuellen Datum entspricht,
+  // wurde es von dort wegverschoben. Sperre diesen Tag für diesen Task.
+  if (item.originalDate && item.originalDate !== item.date) {
+    if (!taskBlockedDays[taskKey]) taskBlockedDays[taskKey] = new Set();
+    taskBlockedDays[taskKey].add(item.originalDate);
+  }
+});
+
 const today = new Date(); today.setHours(0,0,0,0);
 const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
 const calendar = [];
 for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
 const ds = toLocalISO(d);
 const capacity = getCapacityForDate(ds);
-const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
+const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0) + (lockedByDate[ds] || 0);
 const available = Math.max(0, capacity - reserved);
 if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
 }
+
 const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
 sorted.forEach(task=>{
-let need = Number(task.minutes||task.hours||0);
-if (!task.minutes && task.hours) need = Number(task.hours)*60;
-if (!need) return;
 const taskKey = getTaskArchiveKey(task);
-for(const day of calendar){ if(need<=0) break; if(day.remaining<=0) continue; if(new Date(day.date) >= new Date(task.deadline)) continue; const alloc = Math.min(need, day.remaining); plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); day.remaining-=alloc; need-=alloc; }
-if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey});
+// Berechne den Bedarf abzüglich bereits manuell gesetzter (locked) Blöcke dieser Aufgabe
+const alreadyPlannedMinutes = plan.filter(p => getTaskArchiveKey(p) === taskKey).reduce((s,i)=> s + i.minutes, 0);
+let need = Math.max(0, (task.minutes || 0) - alreadyPlannedMinutes);
+
+if (!need) return;
+for(const day of calendar){
+  if(need<=0) break;
+  if(day.remaining<=0) continue;
+  if(new Date(day.date) >= new Date(task.deadline)) continue;
+  
+  // Hier ist der Clou: Wenn der Task von diesem Tag wegverschoben wurde, überspringe ihn.
+  if (taskBlockedDays[taskKey] && taskBlockedDays[taskKey].has(day.date)) continue;
+
+  const alloc = Math.min(need, day.remaining);
+  plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey: taskKey});
+  day.remaining-=alloc;
+  need-=alloc;
+}
+if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey: taskKey});
 });
 return plan;
+}
+
+function getLockedMovedItems() {
+  return Object.values(window.taskDateOverrides || {})
+    .map(ov => ov && typeof ov === 'object' ? ov.item : null)
+    .filter(Boolean);
 }
 
 // UI helpers
@@ -655,7 +702,7 @@ error.classList.remove('visible');
 return true;
 }
 
-function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], completedTaskItems: window.completedTaskItems || {}, exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
 function fillFormData(data){
 document.getElementById('tasks').innerHTML='';
 document.getElementById('slots').innerHTML='';
@@ -666,6 +713,7 @@ window.capacityVersions = Array.isArray(data.capacityVersions) ? data.capacityVe
 window.planSnapshots = data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {};
 window.taskDateOverrides = data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {};
 window.completedTaskKeys = new Set(Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []);
+window.completedTaskItems = data.completedTaskItems && typeof data.completedTaskItems === 'object' ? data.completedTaskItems : {};
 pruneArchivedTasks();
 pruneReservedCapacity();
 (data.tasks||[]).forEach(t=> {
@@ -698,14 +746,20 @@ let currentMonthDate = new Date(); currentMonthDate.setDate(1);
 let taskRowIndex = 0;
 window.taskDateOverrides = window.taskDateOverrides || {};
 window.completedTaskKeys = window.completedTaskKeys || new Set();
+window.completedTaskItems = window.completedTaskItems || {};
 window.archivedTasks = [];
 window.reservedCapacityByDate = {};
 window.capacityVersions = [];
 window.planSnapshots = {};
 
 function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
-function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
-function getTaskArchiveKey(task){ return task.archiveKey || task.taskKey || `${task.title}|${task.deadline}|${task.importance}|${task.minutes}`; }
+function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); } // No change
+function getTaskArchiveKey(task){
+  if (task._id) return task._id; // Use the stable _id if available (from App.vue tasks)
+  if (task.taskKey) return task.taskKey; // Use taskKey if it's a plan item (which should be task._id)
+  // Fallback for older data or if _id/taskKey is missing (e.g., from archivedTasks)
+  return task.archiveKey || `${task.title}|${task.deadline}|${task.importance}|${task.originalMinutes || task.minutes}`;
+}
 function pruneArchivedTasks(){
 const cutoff = new Date();
 cutoff.setFullYear(cutoff.getFullYear() - 1);
@@ -763,7 +817,16 @@ function archiveCompletedTasks(tasks, results){
 const rows = [...document.querySelectorAll('.task-row')];
 const archivedIndexes = [];
 tasks.forEach((task, index) => {
-const assignedItems = results.filter(item => item.status === 'assigned' && getTaskArchiveKey(item) === getTaskArchiveKey(task));
+const seenAssignedKeys = new Set();
+const assignedItems = [
+...results.filter(item => item.status === 'assigned' && getTaskArchiveKey(item) === getTaskArchiveKey(task)),
+...Object.values(window.completedTaskItems || {}).filter(item => item && item.status === 'assigned' && window.completedTaskKeys.has(item.__originalKey) && getTaskArchiveKey(item) === getTaskArchiveKey(task))
+].filter(item => {
+if (!item.__originalKey) return true;
+if (seenAssignedKeys.has(item.__originalKey)) return false;
+seenAssignedKeys.add(item.__originalKey);
+return true;
+});
 const reason = shouldArchiveTask(task, assignedItems);
 if (!reason) return;
 const didArchive = archiveTask(task, reason);
@@ -771,6 +834,7 @@ if (!didArchive) return;
 if (reason === 'all-slots-done') reserveTodayCapacityForArchivedItems(assignedItems);
 assignedItems.forEach(item => {
 window.completedTaskKeys.delete(item.__originalKey);
+if (item.__originalKey) delete window.completedTaskItems[item.__originalKey];
 if (item.__originalKey) delete window.taskDateOverrides[item.__originalKey];
 });
 archivedIndexes.push(index);
@@ -794,10 +858,10 @@ function createCalendarTaskElement(task){
 const tb=document.createElement('div');
 const prio = getTaskPriority(task);
 tb.className=`calendar-task task-block priority-${prio}`;
-tb.dataset.originalKey = task.__originalKey || '';
+tb.dataset.originalKey = task.__originalKey || ''; // This is the unique block ID
 if (isTaskDone(task)) tb.classList.add('task-done');
 tb.draggable = true;
-tb.dataset.id = task.id;
+tb.dataset.id = task.__originalKey; // Use the stable block ID for D&D
 tb.dataset.title = task.title;
 const badge = '!'.repeat(prio);
 tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${task.title}</span><span>${formatHoursValue(task.minutes/60)}h</span>`;
@@ -812,11 +876,20 @@ pruneReservedCapacity();
 validateSlotRows();
 ensureCapacityVersion(slots);
 window.exceptions = exceptions;
-const overrides = window.taskDateOverrides || {};
+
+  const blockOverrides = window.taskDateOverrides || {};
 const schedulableTasks = applyCarryOverToTasks(tasks);
-const scheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
-const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
-return { ...item, id: `plan-${index}`, __originalKey: originalKey, date: overrides[originalKey] || item.date };
+  const lockedMovedItems = getLockedMovedItems();
+
+  const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
+    const blockId = item.__originalKey || `${item.taskKey}-${item.date}-${index}`; 
+    return {
+      ...item,
+      id: `plan-${index}`,
+      __originalKey: blockId,
+      date: blockOverrides[blockId] ? (typeof blockOverrides[blockId] === 'string' ? blockOverrides[blockId] : blockOverrides[blockId].date) : item.date,
+      originalDate: blockOverrides[blockId]?.originalDate || item.date
+    };
 });
 snapshotTodayPlan(scheduledResults);
 const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
@@ -826,33 +899,56 @@ renderMonthView();
 return;
 }
 
-const assignedMinutes = tasks.map(() => 0);
-const todayStr = toLocalISO(new Date());
-results.filter(r => r.status === 'assigned' && (r.date >= todayStr || isTaskDone(r))).forEach(result => {
-const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
-if (idx >= 0) assignedMinutes[idx] += result.minutes;
-});
-const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
-document.querySelectorAll('.task-row').forEach((row, i) => {
-const task = tasks[i];
-if (!task) return;
-const warning = overdueTitles.has(task.title);
-row.classList.toggle('deadline-warning', warning);
-let progress = row.querySelector('.progress-container');
-if (!progress) {
-progress = document.createElement('div');
-progress.className = 'progress-container';
-row.appendChild(progress);
-}
-const badge = row.querySelector('.danger-badge');
-if (badge) badge.innerHTML = warning ? '⚠️ Gefährdet' : '';
-const planned = assignedMinutes[i] || 0;
-const total = task.minutes || 0;
-const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
-const ratio = total > 0 ? planned / total : 0;
-const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
-progress.innerHTML = `<div class="progress-info">${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h geplant</div><div class="progress-bar-bg" title="Geplante Stunden: ${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
-});
+  const todayStr = toLocalISO(new Date());
+  const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
+  const schedulableTaskMap = new Map(schedulableTasks.map(st => [getTaskArchiveKey(st), st]));
+  const taskProgressData = new Map();
+
+  tasks.forEach(task => {
+    const taskKey = getTaskArchiveKey(task);
+    const stask = schedulableTaskMap.get(taskKey);
+    taskProgressData.set(taskKey, {
+      assignedUncompleted: 0,
+      originalTotal: stask ? stask.originalMinutes : Number(task.minutes || 0),
+      completedTotal: stask ? stask.completedMinutes : 0
+    });
+  });
+
+  results.filter(r => r.status === 'assigned' && !isTaskDone(r)).forEach(result => {
+    const taskKey = getTaskArchiveKey(result);
+    if (taskProgressData.has(taskKey)) {
+      taskProgressData.get(taskKey).assignedUncompleted += result.minutes;
+    }
+  });
+
+  document.querySelectorAll('.task-row').forEach((row, i) => {
+    const task = tasks[i];
+    if (!task) return;
+    const taskKey = getTaskArchiveKey(task);
+    const progressData = taskProgressData.get(taskKey);
+    if (!progressData) return;
+
+    const warning = overdueTitles.has(task.title);
+    row.classList.toggle('deadline-warning', warning);
+
+    let progressContainer = row.querySelector('.progress-container');
+    if (!progressContainer) {
+      progressContainer = document.createElement('div');
+      progressContainer.className = 'progress-container';
+      row.appendChild(progressContainer);
+    }
+    const badge = row.querySelector('.danger-badge');
+    if (badge) badge.innerHTML = warning ? '⚠️ Gefährdet' : '';
+
+    const remainingTotalForProgress = progressData.originalTotal - progressData.completedTotal;
+    const plannedUncompleted = progressData.assignedUncompleted;
+
+    let ratio = remainingTotalForProgress > 0 ? plannedUncompleted / remainingTotalForProgress : 1;
+    let pct = Math.min(100, ratio * 100);
+    const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
+
+    progressContainer.innerHTML = `<div class="progress-info">${formatHoursValue(plannedUncompleted/60)}h von ${formatHoursValue(remainingTotalForProgress/60)}h geplant</div><div class="progress-bar-bg"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
+  });
 
 const month = new Date(currentMonthDate);
 const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
@@ -982,8 +1078,14 @@ if (taskElement.classList.contains('is-dragging')) return;
 taskElement.classList.toggle('task-done');
 const originalKey = taskElement.dataset.originalKey;
 if (!originalKey) return;
-if (taskElement.classList.contains('task-done')) window.completedTaskKeys.add(originalKey);
-else window.completedTaskKeys.delete(originalKey);
+if (taskElement.classList.contains('task-done')) {
+window.completedTaskKeys.add(originalKey);
+const planItem = (window.plan || []).find(item => item.__originalKey === originalKey);
+if (planItem) window.completedTaskItems[originalKey] = freezePlanItem(planItem);
+} else {
+window.completedTaskKeys.delete(originalKey);
+delete window.completedTaskItems[originalKey];
+}
 renderMonthView();
 persistData();
 });
@@ -1011,14 +1113,19 @@ if (dayElement && taskId) moveTaskToDay(taskId, dayElement.dataset.date);
 });
 
 function moveTaskToDay(taskId, newDate){
-const item = (window.plan||[]).find(p => p.id === taskId);
+const item = (window.plan||[]).find(p => p.__originalKey === taskId || p.id === taskId);
 if (!item) return;
 if (new Date(newDate) > new Date(item.deadline)){
 alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
 return;
 }
-if (item.__originalKey){
-window.taskDateOverrides[item.__originalKey] = newDate;
+      const originalDate = item.originalDate || item.date;
+      if (newDate === originalDate) {
+        delete window.taskDateOverrides[taskId];
+      } else if (item.__originalKey) {
+        const frozen = freezePlanItem(item);
+        frozen.originalDate = originalDate;
+        window.taskDateOverrides[taskId] = { date: newDate, item: frozen };
 }
 renderMonthView();
 persistData();
