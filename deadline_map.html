@@ -445,6 +445,16 @@
     function isException(dateStr) {
       return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
+    function weekSortKey(year, week) {
+      return (Number(year) || 0) * 100 + (Number(week) || 0);
+    }
+    function getSlotStandardRuleForDate(dateStr) {
+      const [year, week] = getWeekNumber(new Date(dateStr));
+      const dateKey = weekSortKey(year, week);
+      return [...(window.slotStandardRules || [])]
+        .filter(rule => weekSortKey(rule.year, rule.week) <= dateKey)
+        .sort((a, b) => weekSortKey(b.year, b.week) - weekSortKey(a.year, a.week))[0] || null;
+    }
     function getCapacityForDate(dateStr, slotMap = window.slotMap || {}) {
       if (isException(dateStr)) return 0;
       const date = new Date(dateStr);
@@ -452,6 +462,8 @@
       const override = (window.weeklyCapacityOverrides || []).find(item => Number(item.year) === year && Number(item.week) === week);
       const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
       if (override) return Math.round(normalizeHoursValue((override.slots || {})[dayName] || 0) * 60);
+      const standardRule = getSlotStandardRuleForDate(dateStr);
+      if (standardRule) return Math.round(normalizeHoursValue((standardRule.slots || {})[dayName] || 0) * 60);
       return slotMap[dayName] || 0;
     }
 
@@ -559,6 +571,12 @@
     function slotsObjectToList(slots = {}) {
       return weekdays.map(day => ({ day, hours: normalizeHoursValue(slots[day] || 0) })).filter(slot => slot.hours > 0);
     }
+    function slotsListToObject(slots = []) {
+      const result = {};
+      weekdays.forEach(day => { result[day] = 0; });
+      slots.forEach(slot => { result[slot.day] = normalizeHoursValue(slot.hours || 0); });
+      return result;
+    }
     function addSlotRow(){ renderSlotGrid(getSlotsFromUI()); }
     function addExceptionRow(){
       const rowId = `exception-row-${++taskRowIndex}`;
@@ -588,7 +606,7 @@
           <input class="o-week" id="${rowId}-week" type="number" min="1" max="53" value="${week}" aria-label="Kalenderwoche">
         </div>
         <div class="override-days">${days}</div>
-        <button type="button" class="btn override-standard-btn">In Slots uebernehmen</button>
+        <button type="button" class="btn override-standard-btn">Ab KW in Slots uebernehmen</button>
       `);
     }
     function setActiveTab(tab){
@@ -654,9 +672,20 @@
         alert('Bitte Jahr und KW korrekt eingeben.');
         return;
       }
+      window.slotStandardRules = (window.slotStandardRules || [])
+        .filter(item => weekSortKey(item.year, item.week) !== weekSortKey(rule.year, rule.week));
+      window.slotStandardRules.push(rule);
+      window.slotStandardRules.sort((a, b) => weekSortKey(a.year, a.week) - weekSortKey(b.year, b.week));
+      window.activeSlotStandardKey = weekSortKey(rule.year, rule.week);
       renderSlotGrid(slotsObjectToList(rule.slots));
-      alert('Werte wurden in Slots uebernommen.');
+      alert(`Werte wurden ab KW ${rule.week}/${rule.year} in Slots uebernommen.`);
       renderMonthView();
+    }
+    function syncActiveSlotStandardFromSlots() {
+      if (!window.activeSlotStandardKey) return;
+      const rule = (window.slotStandardRules || []).find(item => weekSortKey(item.year, item.week) === window.activeSlotStandardKey);
+      if (!rule) return;
+      rule.slots = slotsListToObject(getSlotsFromUI());
     }
     function validateSlotRows(){
       const error = document.getElementById('slots-error');
@@ -667,13 +696,15 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); syncActiveSlotStandardFromSlots(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), slotStandardRules: window.slotStandardRules || [], activeSlotStandardKey: window.activeSlotStandardKey || 0, exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
       document.getElementById('exceptions').innerHTML='';
       document.getElementById('overrides').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
+      window.slotStandardRules = Array.isArray(data.slotStandardRules) ? data.slotStandardRules : [];
+      window.activeSlotStandardKey = Number(data.activeSlotStandardKey || 0);
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
       pruneArchivedTasks();
       pruneReservedCapacity();
@@ -683,6 +714,8 @@
         createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
       });
       renderSlotGrid(data.slots || []);
+      const activeRule = (window.slotStandardRules || []).find(item => weekSortKey(item.year, item.week) === window.activeSlotStandardKey);
+      if (activeRule) renderSlotGrid(slotsObjectToList(activeRule.slots));
       (data.exceptions||[]).forEach(e=> {
         const rowId = `exception-row-${++taskRowIndex}`;
         createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
@@ -707,6 +740,8 @@
     window.archivedTasks = [];
     window.reservedCapacityByDate = {};
     window.weeklyCapacityOverrides = [];
+    window.slotStandardRules = [];
+    window.activeSlotStandardKey = 0;
 
     function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
     function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
@@ -955,10 +990,14 @@
     document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
     document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 
-    document.addEventListener('input', renderMonthView);
+    document.addEventListener('input', e => {
+      if (e.target.closest('#slots')) syncActiveSlotStandardFromSlots();
+      renderMonthView();
+    });
     document.addEventListener('change', e => {
       const hoursInput = e.target.closest('.input-hours');
       if (hoursInput) sanitizeHourInput(hoursInput);
+      if (e.target.closest('#slots')) syncActiveSlotStandardFromSlots();
       renderMonthView();
     });
     window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView();
@@ -1026,6 +1065,8 @@
     function enableAutoSave(){ document.addEventListener('change', ()=>{
       localStorage.setItem('lernplan_autosave_tasks', JSON.stringify([...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, hours: r.querySelector('.t-hrs').value, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value }))));
       localStorage.setItem('lernplan_autosave_slots', JSON.stringify([...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: r.querySelector('.s-hrs').value }))));
+      localStorage.setItem('lernplan_autosave_slot_standard_rules', JSON.stringify(window.slotStandardRules || []));
+      localStorage.setItem('lernplan_autosave_active_slot_standard_key', String(window.activeSlotStandardKey || 0));
       localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
       localStorage.setItem('lernplan_autosave_overrides', JSON.stringify(getOverridesFromUI()));
     }); }
