@@ -1,6 +1,6 @@
 # Deadline Map
 
-Live-Demo: https://committoclock.github.io/Deadline-Map/
+Live-Demo: https://deadline-map.onrender.com/
 
 Deadline Map ist eine interaktive Web-App zur Lern- und Deadlineplanung. Nutzerinnen und Nutzer tragen Aufgaben, Deadlines, woechentliche Lernzeiten, Ausnahmetage und einmalige Wochenanpassungen ein. Die App berechnet daraus einen Lernplan und zeigt direkt, ob die verfuegbare Zeit bis zu den Deadlines ausreicht.
 
@@ -63,9 +63,9 @@ http://localhost:3000
 
 Die oeffentliche Version ist hier erreichbar:
 
-https://committoclock.github.io/Deadline-Map/
+https://deadline-map.onrender.com/
 
-Das Repository ist fuer ein statisches Deployment vorbereitet. Fuer GitHub Pages kann nach einem Build der Inhalt aus `dist/` veroeffentlicht werden. Fuer Plattformen wie Vercel, Netlify oder Render reichen typischerweise diese Einstellungen:
+Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen wie Render, Vercel oder Netlify reichen typischerweise diese Einstellungen:
 
 - Build command: `npm run build`
 - Publish directory: `dist`
