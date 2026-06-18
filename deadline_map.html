@@ -395,9 +395,8 @@
   <div class="tab-bar">
     <div class="tabs">
       <button type="button" class="tab-button active" data-tab="tasks">Aufgaben<span class="info-icon" title="Gib hier deine Aufgaben ein und plane dafür Stunden. Deadline und Priorität helfen bei der Verteilung.">ℹ️</span></button>
-      <button type="button" class="tab-button" data-tab="slots">Slots<span class="info-icon" title="Ein Slot ist ein wiederkehrender Zeitblock an einem Wochentag, den du für Lernen reservierst.">ℹ️</span></button>
+      <button type="button" class="tab-button" data-tab="capacity">Kapazitaeten<span class="info-icon" title="Lege Standard-Lernzeiten und abweichende Kapazitaeten fuer einzelne Kalenderwochen fest.">ℹ️</span></button>
       <button type="button" class="tab-button" data-tab="exceptions">Ausnahmen<span class="info-icon" title="Eine Ausnahme blockiert Tage, an denen du nicht lernen kannst, z. B. Feiertage, Termine oder Urlaub.">ℹ️</span></button>
-      <button type="button" class="tab-button" data-tab="overrides">KW-Kapazitaeten<span class="info-icon" title="Passe die Lernzeit fuer eine einzelne Kalenderwoche an, z. B. fuer Pruefungswochen oder Urlaub.">ℹ️</span></button>
       <button type="button" class="tab-button" data-tab="completed">Abgeschlossen<span class="info-icon" title="Hier landen Aufgaben, deren geplante Blöcke erledigt sind oder deren Deadline zurückliegt.">ℹ️</span></button>
     </div>
     <button id="tab-add" class="btn btn-compact">+ Aufgabe hinzufügen</button>
@@ -406,17 +405,18 @@
     <section class="card-panel tab-content active" id="tasks-panel" data-tab="tasks">
       <div id="tasks"></div>
     </section>
-    <section class="card-panel tab-content" id="slots-panel" data-tab="slots">
-      <p class="section-description">Lernzeit pro Wochentag in Stunden</p>
+    <section class="card-panel tab-content" id="capacity-panel" data-tab="capacity">
+      <p class="section-description">Standard-Lernzeit pro Wochentag in Stunden</p>
       <div id="slots-error" class="form-error" role="alert"></div>
       <div id="slots"></div>
+      <div class="panel-header">
+        <p class="section-description">Kapazitaet fuer einzelne Kalenderwochen</p>
+        <button type="button" id="add-override" class="btn btn-compact">+ KW hinzufuegen</button>
+      </div>
+      <div id="overrides"></div>
     </section>
     <section class="card-panel tab-content" id="exceptions-panel" data-tab="exceptions">
       <div id="exceptions"></div>
-    </section>
-    <section class="card-panel tab-content" id="overrides-panel" data-tab="overrides">
-      <p class="section-description">Einzelne KW ueberschreiben oder als neuen Standard ab dieser KW setzen</p>
-      <div id="overrides"></div>
     </section>
     <section class="card-panel tab-content" id="completed-panel" data-tab="completed">
       <div id="completed"></div>
@@ -612,11 +612,11 @@
     function setActiveTab(tab){
       document.querySelectorAll('.tab-button').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab===tab));
       document.querySelectorAll('.tab-content').forEach(panel=> panel.classList.toggle('active', panel.dataset.tab===tab));
-      const labels = { tasks: '+ Aufgabe hinzufuegen', slots: '', exceptions: '+ Ausnahme hinzufuegen', overrides: '+ KW hinzufuegen', completed: '' };
+      const labels = { tasks: '+ Aufgabe hinzufuegen', capacity: '', exceptions: '+ Ausnahme hinzufuegen', completed: '' };
       const label = labels[tab] || '+ Aufgabe hinzufügen';
-      const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = (tab === 'slots' || tab === 'completed') ? 'none' : ''; }
+      const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = (tab === 'capacity' || tab === 'completed') ? 'none' : ''; }
     }
-    function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='slots') addSlotRow(); else if(activeTab==='exceptions') addExceptionRow(); else if(activeTab==='overrides') addOverrideRow(); }
+    function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='exceptions') addExceptionRow(); }
     document.addEventListener('click', e => {
       const standardButton = e.target.closest('.override-standard-btn');
       if (standardButton) {
@@ -1000,6 +1000,7 @@
     });
 
     document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
+    document.getElementById('add-override').addEventListener('click', () => addOverrideRow());
     document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 
     document.addEventListener('input', e => {
