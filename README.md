@@ -1,84 +1,94 @@
-# Deadline Map - Lernplan & Kapazitäts-Check
+# Deadline Map
 
-Eine interaktive Web-App zur Verwaltung von Deadlines und Lernplanung.
+Live-Demo: https://committoclock.github.io/Deadline-Map/
 
-## 🚀 Installation & Lokales Testen
+Deadline Map ist eine interaktive Web-App zur Lern- und Deadlineplanung. Nutzerinnen und Nutzer tragen Aufgaben, Deadlines, woechentliche Lernzeiten, Ausnahmetage und einmalige Wochenanpassungen ein. Die App berechnet daraus einen Lernplan und zeigt direkt, ob die verfuegbare Zeit bis zu den Deadlines ausreicht.
 
-### 1. Dependencies installieren
+## Funktionen
+
+- Aufgaben mit benoetigter Zeit, Deadline und Prioritaet erfassen
+- Woechentliche Standard-Zeitfenster fuer Lernzeiten pflegen
+- Ausnahmetage wie Urlaub, Krankheit oder Pruefungsphasen eintragen
+- Kapazitaeten fuer einzelne Kalenderwochen ueberschreiben
+- Automatische Verteilung der Aufgaben auf freie Tage
+- Live-Anzeige fuer Zeitmangel, geplante Stunden und freie Restkapazitaeten
+- Speichern, Laden, Export und Import der Planungsdaten im Browser
+- Dark Mode
+
+## Technologien
+
+- Vue 3
+- Vite
+- Tailwind CSS
+- Express fuer das optionale lokale/produktive Servieren der App
+- LocalStorage und JSON-Dateien fuer lokale Datenspeicherung
+
+## Lokal Starten
+
+Voraussetzung: Node.js und npm muessen installiert sein.
+
 ```bash
+git clone https://github.com/CommitToClock/Deadline-Map.git
+cd Deadline-Map
 npm install
+npm run dev
 ```
 
-### 2. Server starten
+Die Entwicklungsumgebung laeuft danach unter der URL, die Vite im Terminal ausgibt, normalerweise:
+
+```text
+http://localhost:5173
+```
+
+## Production Build
+
+```bash
+npm run build
+npm run preview
+```
+
+Alternativ kann die App ueber den Express-Server gestartet werden:
+
 ```bash
 npm start
 ```
 
-Server läuft dann unter **http://localhost:3000**
+Der Express-Server laeuft standardmaessig unter:
 
----
-
-## 📤 Deployment - Damit andere zugreifen können
-
-### Option 1: **Vercel** (Empfohlen - kostenlos & einfach)
-
-1. Gehe zu [vercel.com](https://vercel.com) und melde dich an
-2. Verbinde dein GitHub Repository
-3. Vercel erkennt die `package.json` automatisch
-4. Klicke "Deploy" - fertig! ✅
-5. Deine App ist dann unter einer URL wie `deadline-map-xxx.vercel.app` erreichbar
-
-### Option 2: **Heroku** (Kostenlos für kleine Projekte)
-
-1. Melde dich bei [heroku.com](https://heroku.com) an
-2. Erstelle eine neue App
-3. Verbinde dein GitHub Repository
-4. Klicke "Deploy Branch"
-5. Deine App läuft dann unter `your-app-name.herokuapp.com`
-
-### Option 3: **Railway.app** (Sehr einfach)
-
-1. Gehe zu [railway.app](https://railway.app)
-2. Melde dich mit GitHub an
-3. Klicke "New Project" → "Deploy from GitHub Repo"
-4. Wähle dein Repo aus
-5. Railway deployed es automatisch
-
-### Option 4: **GitHub Pages** (Nur für statische Seiten)
-
-Falls du nur die HTML-Datei ohne Server brauchst:
-```bash
-# GitHub Pages automatisch aktivieren
-# Settings → Pages → Choose branch (main) → /root folder
-```
-Dann ist die App unter `https://username.github.io/deadline-map` erreichbar.
-
----
-
-## 📋 Tipps für Freunde
-
-**Link zum Teilen:**
-- Mit Node.js Server: `https://your-deployed-app.com/deadline_map.html`
-- Mit GitHub Pages: `https://username.github.io/deadline-map/deadline_map.html`
-
-**Im README erwähnen:**
-```markdown
-### 🔗 Live Demo
-[Deadline Map öffnen](https://your-app-name.vercel.app)
-
-### Lokal nutzen
-```bash
-git clone https://github.com/username/deadline-map.git
-cd deadline-map
-npm install
-npm start
-```
+```text
+http://localhost:3000
 ```
 
----
+## Deployment
 
-## ❓ Fragen?
+Die oeffentliche Version ist hier erreichbar:
 
-- **Server läuft nicht?** → Prüfe ob Node.js installiert ist: `node --version`
-- **Port 3000 belegt?** → Ändere in `server.js`: `const PORT = 3001;`
-- **GitHub Push schlägt fehl?** → Mache: `git add .` → `git commit -m "Add server"` → `git push`
+https://committoclock.github.io/Deadline-Map/
+
+Das Repository ist fuer ein statisches Deployment vorbereitet. Fuer GitHub Pages kann nach einem Build der Inhalt aus `dist/` veroeffentlicht werden. Fuer Plattformen wie Vercel, Netlify oder Render reichen typischerweise diese Einstellungen:
+
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Optionaler Start command fuer Node/Express: `npm start`
+
+## Projektstruktur
+
+```text
+.
+|-- src/
+|   |-- App.vue
+|   |-- main.js
+|   |-- style.css
+|   `-- components/
+|       `-- ResultsSection.vue
+|-- index.html
+|-- deadline_map.html
+|-- server.js
+|-- package.json
+|-- tailwind.config.js
+`-- vite.config.js
+```
+
+## Hinweise
+
+Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.

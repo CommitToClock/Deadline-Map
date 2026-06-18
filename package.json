@@ -1,7 +1,7 @@
 {
   "name": "deadline-map",
   "version": "1.0.0",
-  "description": "Lernplan und Kapazitäts-Check Tool",
+  "description": "Lernplan und Kapazitaets-Check Tool",
   "main": "server.js",
   "scripts": {
     "dev": "vite",
@@ -9,11 +9,11 @@
     "preview": "vite preview",
     "start": "node server.js"
   },
-  "keywords": ["deadline", "lernplan", "kapazität"],
+  "keywords": ["deadline", "lernplan", "kapazitaet"],
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": "14.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "express": "^4.18.2",
