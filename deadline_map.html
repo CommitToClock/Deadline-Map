@@ -206,14 +206,14 @@
     .exception-row.card{gap:10px;margin-bottom:4px;}
     .exception-row input[type="text"]{width:220px !important;}
     .exception-row .delete-btn{margin-left:auto;}
-    .override-row.card{display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:6px 8px;overflow-x:auto;}
+    .override-row.card{display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:6px 8px;overflow:visible;flex-wrap:wrap;}
     .override-head{display:flex;align-items:center;gap:4px;flex:0 0 auto;}
     .override-head label{font-size:0.74rem;font-weight:800;color:#1e293b;}
     .override-head input{width:4.6rem !important;min-width:4.6rem !important;text-align:center;padding:0.28rem 0.35rem;}
-    .override-days{display:grid;grid-template-columns:repeat(7,48px);gap:4px;flex:0 0 auto;}
-    .override-day{display:flex;align-items:center;gap:2px;padding:3px 4px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;}
+    .override-days{display:grid;grid-template-columns:repeat(7,minmax(68px,1fr));gap:4px;flex:1 1 520px;min-width:0;}
+    .override-day{display:flex;align-items:center;justify-content:center;gap:3px;min-width:0;padding:3px 4px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;}
     .override-day span{font-size:0.66rem;font-weight:800;color:#475569;text-transform:uppercase;}
-    .override-day input{width:2.8rem !important;min-width:2.8rem !important;text-align:center;padding:0.28rem 0.2rem;}
+    .override-day input{width:3rem !important;min-width:3rem !important;text-align:center;padding:0.28rem 0.2rem;}
     .override-row .delete-btn{margin-left:0;padding:0.22rem 0.4rem;flex:0 0 auto;}
 
     .calendar-day .red-line,
