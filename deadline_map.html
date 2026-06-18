@@ -206,6 +206,15 @@
     .exception-row.card{gap:10px;margin-bottom:4px;}
     .exception-row input[type="text"]{width:220px !important;}
     .exception-row .delete-btn{margin-left:auto;}
+    .override-row.card{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:8px;overflow:visible;}
+    .override-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .override-head label{font-size:0.82rem;font-weight:700;color:#1e293b;}
+    .override-head input{width:6.2rem !important;text-align:center;}
+    .override-days{display:grid;grid-template-columns:repeat(7,minmax(74px,1fr));gap:6px;}
+    .override-day{display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;}
+    .override-day span{font-size:0.72rem;font-weight:800;color:#475569;text-transform:uppercase;}
+    .override-day input{width:3.8rem !important;min-width:3.8rem !important;text-align:center;padding-left:0.45rem;padding-right:0.45rem;}
+    .override-row .delete-btn{align-self:flex-end;margin-left:0;}
 
     .calendar-day .red-line,
     .calendar-day::before,
@@ -283,6 +292,9 @@
     .dark .slot-day-label,
     .dark .slot-input-label,
     .dark .slot-unit{color:#fff;}
+    .dark .override-head label,
+    .dark .override-day span{color:#fff;}
+    .dark .override-day{background:var(--surface);border-color:#334155;}
     .dark .form-error{border-color:#7f1d1d;background:rgba(127,29,29,0.35);color:#fff;}
 
     .dark .field-group label{color:var(--text-muted);}
@@ -332,6 +344,7 @@
       .day-cell{min-height:88px;}
       .task-block{flex-direction:column;align-items:flex-start;}
       #slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
+      .override-days{grid-template-columns:repeat(4,minmax(76px,1fr));}
       .archive-row{grid-template-columns:1fr;gap:3px;}
       .archive-meta-group{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;}
     }
@@ -354,6 +367,7 @@
       .task-block{padding:8px 10px;}
       .toolbar > .btn{width:100%;}
       #slots{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .override-days{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
   </style>
 </head>
@@ -382,6 +396,7 @@
       <button type="button" class="tab-button active" data-tab="tasks">Aufgaben<span class="info-icon" title="Gib hier deine Aufgaben ein und plane dafür Stunden. Deadline und Priorität helfen bei der Verteilung.">ℹ️</span></button>
       <button type="button" class="tab-button" data-tab="slots">Slots<span class="info-icon" title="Ein Slot ist ein wiederkehrender Zeitblock an einem Wochentag, den du für Lernen reservierst.">ℹ️</span></button>
       <button type="button" class="tab-button" data-tab="exceptions">Ausnahmen<span class="info-icon" title="Eine Ausnahme blockiert Tage, an denen du nicht lernen kannst, z. B. Feiertage, Termine oder Urlaub.">ℹ️</span></button>
+      <button type="button" class="tab-button" data-tab="overrides">KW-Kapazitaeten<span class="info-icon" title="Passe die Lernzeit fuer eine einzelne Kalenderwoche an, z. B. fuer Pruefungswochen oder Urlaub.">i</span></button>
       <button type="button" class="tab-button" data-tab="completed">Abgeschlossen<span class="info-icon" title="Hier landen Aufgaben, deren geplante Blöcke erledigt sind oder deren Deadline zurückliegt.">ℹ️</span></button>
     </div>
     <button id="tab-add" class="btn btn-compact">+ Aufgabe hinzufügen</button>
@@ -396,6 +411,9 @@
     </section>
     <section class="card-panel tab-content" id="exceptions-panel" data-tab="exceptions">
       <div id="exceptions"></div>
+    </section>
+    <section class="card-panel tab-content" id="overrides-panel" data-tab="overrides">
+      <div id="overrides"></div>
     </section>
     <section class="card-panel tab-content" id="completed-panel" data-tab="completed">
       <div id="completed"></div>
@@ -424,6 +442,15 @@
     function isException(dateStr) {
       return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
+    function getCapacityForDate(dateStr, slotMap = window.slotMap || {}) {
+      if (isException(dateStr)) return 0;
+      const date = new Date(dateStr);
+      const [year, week] = getWeekNumber(date);
+      const override = (window.weeklyCapacityOverrides || []).find(item => Number(item.year) === year && Number(item.week) === week);
+      const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
+      if (override) return Math.round(normalizeHoursValue((override.slots || {})[dayName] || 0) * 60);
+      return slotMap[dayName] || 0;
+    }
 
     // small utilities
     function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=(Number(s.hours)||0)*60); return m; }
@@ -445,7 +472,7 @@
       const calendar = [];
       for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
         const ds = toLocalISO(d);
-        const capacity = isException(ds) ? 0 : (slotMap[new Date(d).toLocaleDateString('de-DE',{weekday:'long'})]||0);
+        const capacity = getCapacityForDate(ds, slotMap);
         const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
         const available = Math.max(0, capacity - reserved);
         if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
@@ -534,14 +561,37 @@
       <label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" placeholder="Von" aria-label="Von" title="Von">
       <label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" placeholder="Bis" aria-label="Bis" title="Bis">
     `); }
+    function addOverrideRow(override = null){
+      const rowId = `override-row-${++taskRowIndex}`;
+      const [currentYear, currentWeek] = getWeekNumber(new Date());
+      const year = Number(override?.year || currentYear);
+      const week = Number(override?.week || currentWeek);
+      const slots = override?.slots || {};
+      const days = weekdays.map((day, index) => `
+        <label class="override-day">
+          <span title="${day}">${weekdayShort[index]}</span>
+          <input class="o-day" type="hidden" value="${day}">
+          <input class="o-hrs input-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slots[day] || 0)}" aria-label="Stunden ${day}">
+        </label>
+      `).join('');
+      createRow('overrides', `
+        <div class="override-head">
+          <label for="${rowId}-year">Jahr</label>
+          <input class="o-year" id="${rowId}-year" type="number" min="2020" max="2100" value="${year}" aria-label="Jahr">
+          <label for="${rowId}-week">KW</label>
+          <input class="o-week" id="${rowId}-week" type="number" min="1" max="53" value="${week}" aria-label="Kalenderwoche">
+        </div>
+        <div class="override-days">${days}</div>
+      `);
+    }
     function setActiveTab(tab){
       document.querySelectorAll('.tab-button').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab===tab));
       document.querySelectorAll('.tab-content').forEach(panel=> panel.classList.toggle('active', panel.dataset.tab===tab));
-      const labels = { tasks: '+ Aufgabe hinzufügen', slots: '', exceptions: '+ Ausnahme hinzufügen', completed: '' };
+      const labels = { tasks: '+ Aufgabe hinzufuegen', slots: '', exceptions: '+ Ausnahme hinzufuegen', overrides: '+ KW hinzufuegen', completed: '' };
       const label = labels[tab] || '+ Aufgabe hinzufügen';
       const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = (tab === 'slots' || tab === 'completed') ? 'none' : ''; }
     }
-    function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='slots') addSlotRow(); else if(activeTab==='exceptions') addExceptionRow(); }
+    function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='slots') addSlotRow(); else if(activeTab==='exceptions') addExceptionRow(); else if(activeTab==='overrides') addOverrideRow(); }
     document.addEventListener('click', e => {
       const btn = e.target.closest('.prio-container button');
       if (!btn) return;
@@ -558,6 +608,20 @@
     function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
     function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
     function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
+    function getOverridesFromUI(){
+      return [...document.querySelectorAll('.override-row')].map(row => {
+        const slots = {};
+        row.querySelectorAll('.override-day').forEach(dayRow => {
+          const day = dayRow.querySelector('.o-day').value;
+          slots[day] = normalizeHoursValue(dayRow.querySelector('.o-hrs').value || 0);
+        });
+        return {
+          year: Number(row.querySelector('.o-year').value),
+          week: Number(row.querySelector('.o-week').value),
+          slots
+        };
+      }).filter(item => item.year && item.week >= 1 && item.week <= 53);
+    }
     function validateSlotRows(){
       const error = document.getElementById('slots-error');
       if (error) {
@@ -567,11 +631,12 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
       document.getElementById('exceptions').innerHTML='';
+      document.getElementById('overrides').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
       pruneArchivedTasks();
@@ -586,6 +651,7 @@
         const rowId = `exception-row-${++taskRowIndex}`;
         createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
       });
+      (data.overrides || []).forEach(addOverrideRow);
       setMinDateForPickers();
       renderArchive();
       currentMonthDate = new Date();
@@ -604,6 +670,7 @@
     window.completedTaskKeys = window.completedTaskKeys || new Set();
     window.archivedTasks = [];
     window.reservedCapacityByDate = {};
+    window.weeklyCapacityOverrides = [];
 
     function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
     function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
@@ -710,10 +777,12 @@
       const tasks = getTasksFromUI();
       const slots = getSlotsFromUI();
       const exceptions = getExceptionsFromUI();
+      const weeklyOverrides = getOverridesFromUI();
       pruneReservedCapacity();
       validateSlotRows();
       window.slotMap = buildSlotMap(slots);
       window.exceptions = exceptions;
+      window.weeklyCapacityOverrides = weeklyOverrides;
       const overrides = window.taskDateOverrides || {};
       const results = schedule(tasks, slots, exceptions).map((item,index)=>{
         const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
@@ -785,7 +854,7 @@
           dayCell.appendChild(header);
           const tasksForDay = dayPlans[dateStr]||[];
           const deadlineForDay = deadlineTasks[dateStr]||[];
-          const capacity = (window.slotMap && window.slotMap[new Date(dateStr).toLocaleDateString('de-DE',{weekday:'long'})]) || 0;
+          const capacity = getCapacityForDate(dateStr, window.slotMap);
           const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[dateStr]) || 0);
           const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
           const displayedUsed = used + reserved;
@@ -922,6 +991,7 @@
       localStorage.setItem('lernplan_autosave_tasks', JSON.stringify([...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, hours: r.querySelector('.t-hrs').value, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value }))));
       localStorage.setItem('lernplan_autosave_slots', JSON.stringify([...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: r.querySelector('.s-hrs').value }))));
       localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
+      localStorage.setItem('lernplan_autosave_overrides', JSON.stringify(getOverridesFromUI()));
     }); }
     enableAutoSave();
 
