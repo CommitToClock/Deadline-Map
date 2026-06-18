@@ -75,6 +75,8 @@ section.card-panel{background:var(--card);border:1px solid var(--border);border-
 .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);}
 .day-cell .task-block.priority-3 .task-title{color:#fff}
 .task-title{font-weight:600;flex:1}
+.calendar-task{cursor:grab;}
+.calendar-task.is-dragging{cursor:grabbing;opacity:0.8}
 .deadline-banner{margin-top:8px;padding:10px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:1px solid var(--accent);}
 .progress-bar{height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative}
 .progress-fill{height:100%;width:0%;transition:width .3s ease}
@@ -411,6 +413,27 @@ section.card-panel{padding:0.9rem;}
 // helpers
 const toLocalISO = d => new Date(d).toLocaleDateString('sv-SE');
 const formatDateDE = ds => ds ? ds.split('-').reverse().join('.') : '';
+const createStableId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const normalizeDateValue = value => {
+const date = new Date(value);
+if (Number.isNaN(date.getTime())) return '';
+date.setHours(0,0,0,0);
+return toLocalISO(date);
+};
+const getLegacyTaskKey = task => task.archiveKey || `${task.title||''}|${task.deadline||''}|${task.importance||1}|${task.originalMinutes || task.minutes || 0}`;
+const inferTaskId = task => task && (task._id || task.taskKey || getLegacyTaskKey(task)) || createStableId();
+const isUnitId = value => typeof value === 'string' && value.includes('::');
+const inferTaskCreatedAt = task => {
+const explicitDate = normalizeDateValue(task && task.createdAt);
+if (explicitDate) return explicitDate;
+const rawId = Number(task && task._id);
+if (Number.isFinite(rawId) && rawId > 100000000000) {
+const inferredDate = normalizeDateValue(rawId);
+if (inferredDate) return inferredDate;
+}
+return toLocalISO(new Date());
+};
+const isScheduledResult = item => item.status === 'assigned' || item.status === 'late-assigned';
 const getTodayValue = () => {
 const d = new Date();
 const year = d.getFullYear();
@@ -478,14 +501,17 @@ status: item.status,
 importance: item.importance,
 deadline: item.deadline,
 taskKey: item.taskKey, // Preserve taskKey (task._id)
-__originalKey: item.__originalKey
+taskCreatedAt: item.taskCreatedAt,
+originalDate: item.originalDate,
+__originalKey: item.__originalKey,
+unitIds: [...(item.unitIds || [item.__originalKey].filter(Boolean))]
 };
 }
 function snapshotTodayPlan(results) {
 const todayStr = toLocalISO(new Date());
 window.planSnapshots = window.planSnapshots || {};
 const currentItems = results
-.filter(item => item.status === 'assigned' && item.date === todayStr)
+.filter(item => isScheduledResult(item) && item.date === todayStr)
 .map(freezePlanItem);
 const currentKeys = new Set(currentItems.map(item => item.__originalKey)); // Use __originalKey (unique block ID)
 const preservedDoneItems = (window.planSnapshots[todayStr] || [])
@@ -499,32 +525,38 @@ const historical = Object.entries(window.planSnapshots || {})
 .flatMap(([, items]) => (items || []).map(item => ({ ...item, status: item.status || 'assigned' })));
 return [...historical, ...results];
 }
-function getCompletedMinutesByTaskKey() {
+const UNIT_MINUTES = 15;
+const buildUnitId = (taskKey, unitIndex) => `${taskKey}::${unitIndex}`;
+const serializeUnitIds = unitIds => JSON.stringify(unitIds || []);
+const parseUnitIds = value => {
+try {
+const parsed = JSON.parse(String(value || '[]'));
+if (Array.isArray(parsed)) return parsed.filter(isUnitId);
+} catch(e) {}
+return String(value || '').split('|').filter(isUnitId);
+};
+
+function getCompletedMinutesByTaskKey(tasks = []) {
 const totals = {};
-const seen = new Set();
-Object.values(window.planSnapshots || {}).flat().forEach(item => {
-if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return; // Use __originalKey
-if (seen.has(item.__originalKey)) return;
-seen.add(item.__originalKey);
-const key = getTaskArchiveKey(item); // This will be item.taskKey (task._id)
-totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
-});
-Object.values(window.completedTaskItems || {}).forEach(item => {
-if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return;
-if (seen.has(item.__originalKey)) return;
-seen.add(item.__originalKey);
-const key = getTaskArchiveKey(item);
-totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
-});
+const activeTaskKeys = new Set(tasks.map(task => getTaskArchiveKey(task)));
+const completedItems = window.completedTaskItems || {};
+for (const unitId of window.completedTaskKeys || []) {
+const item = completedItems[unitId];
+if (!item) continue;
+const taskKey = getTaskArchiveKey(item);
+if (activeTaskKeys.size > 0 && !activeTaskKeys.has(taskKey)) continue;
+totals[taskKey] = (totals[taskKey] || 0) + UNIT_MINUTES;
+}
 return totals;
 }
+
 function applyCarryOverToTasks(tasks) {
-const completedByTask = getCompletedMinutesByTaskKey();
+const completedByTask = getCompletedMinutesByTaskKey(tasks);
 return tasks.map(task => {
 const completedMinutes = completedByTask[getTaskArchiveKey(task)] || 0;
 const remainingMinutes = Math.max(0, Number(task.minutes || 0) - completedMinutes);
-return { ...task, minutes: remainingMinutes, originalMinutes: task.minutes, completedMinutes };
-}).filter(task => task.minutes > 0);
+return { ...task, minutes: remainingMinutes, originalMinutes: Number(task.minutes || 0), completedMinutes };
+});
 }
 function pruneReservedCapacity(){
 const todayStr = toLocalISO(new Date());
@@ -533,68 +565,152 @@ if (date < todayStr) delete window.reservedCapacityByDate[date];
 });
 }
 
-// scheduling algorithm (kept simple)
-function schedule(tasks, slots, exceptions, lockedItems = []){
-const plan = [...lockedItems].map(item => ({ ...item, status: 'assigned', locked: true }));
-if(!tasks||tasks.length===0) return plan;
+function createPlanUnit(task, unitId, date, status, extra = {}) {
+return {
+title: task.title,
+minutes: UNIT_MINUTES,
+status,
+importance: task.importance,
+deadline: task.deadline,
+taskKey: getTaskArchiveKey(task),
+taskCreatedAt: inferTaskCreatedAt(task),
+date,
+__originalKey: unitId,
+unitIds: [unitId],
+originalDate: extra.originalDate || date,
+locked: !!extra.locked,
+done: !!extra.done
+};
+}
 
-const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-const taskBlockedDays = {}; 
-const lockedByDate = {};
-
-plan.forEach(item => {
-  lockedByDate[item.date] = (lockedByDate[item.date] || 0) + (item.minutes || 0);
-  const taskKey = getTaskArchiveKey(item);
-  
-  // Wenn ein Item ein originalDate hat, das nicht dem aktuellen Datum entspricht,
-  // wurde es von dort wegverschoben. Sperre diesen Tag für diesen Task.
-  if (item.originalDate && item.originalDate !== item.date) {
-    if (!taskBlockedDays[taskKey]) taskBlockedDays[taskKey] = new Set();
-    taskBlockedDays[taskKey].add(item.originalDate);
-  }
+function groupPlanUnits(units) {
+const grouped = new Map();
+units.forEach(unit => {
+const groupKey = [unit.date || '', unit.status, unit.taskKey, unit.deadline, unit.importance, unit.done ? 'done' : 'open'].join('|');
+if (!grouped.has(groupKey)) {
+grouped.set(groupKey, {
+date: unit.date,
+title: unit.title,
+minutes: 0,
+status: unit.status,
+importance: unit.importance,
+deadline: unit.deadline,
+taskKey: unit.taskKey,
+taskCreatedAt: unit.taskCreatedAt,
+__originalKey: unit.__originalKey,
+originalDate: unit.originalDate || unit.date,
+done: !!unit.done,
+unitIds: []
+});
+}
+const entry = grouped.get(groupKey);
+entry.minutes += unit.minutes;
+entry.unitIds.push(unit.__originalKey);
 });
 
-const today = new Date(); today.setHours(0,0,0,0);
-const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
+return [...grouped.values()].sort((a, b) => {
+if (!a.date && !b.date) return 0;
+if (!a.date) return 1;
+if (!b.date) return -1;
+if (a.date !== b.date) return a.date.localeCompare(b.date);
+return Number(b.importance || 0) - Number(a.importance || 0);
+});
+}
+
+function schedule(tasks){
+const activeTasks = (tasks || []).filter(task => task.title && task.deadline && Number(task.minutes || 0) > 0);
+if (!activeTasks.length) return { items: [], unitMap: {} };
+
+const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const completedSet = window.completedTaskKeys || new Set();
+const completedItems = window.completedTaskItems || {};
+const overrides = window.taskDateOverrides || {};
+const sortedTasks = [...activeTasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+const planningStart = sortedTasks.map(task => inferTaskCreatedAt(task)).filter(Boolean).sort()[0] || toLocalISO(new Date());
+const startDate = new Date(planningStart); startDate.setHours(0,0,0,0);
+const maxDL = new Date(Math.max(...sortedTasks.map(t=>new Date(t.deadline))));
+const todayStr = toLocalISO(new Date());
+
+const reservedByDate = {};
+const assignedUnits = [];
+const unitMap = {};
+const backlog = [];
+
+const pushUnit = (unit) => {
+assignedUnits.push(unit);
+unitMap[unit.__originalKey] = unit;
+};
+
+sortedTasks.forEach(task => {
+const taskKey = getTaskArchiveKey(task);
+const totalUnits = Math.round(Number(task.minutes || 0) / UNIT_MINUTES);
+for (let unitIndex = 0; unitIndex < totalUnits; unitIndex++) {
+const unitId = buildUnitId(taskKey, unitIndex);
+const override = overrides[unitId];
+
+if (completedSet.has(unitId)) {
+const frozen = completedItems[unitId] || override?.item;
+const date = override?.date || frozen?.date || inferTaskCreatedAt(task);
+if (date === todayStr) reservedByDate[date] = (reservedByDate[date] || 0) + UNIT_MINUTES;
+pushUnit(createPlanUnit(task, unitId, date, 'assigned', {
+originalDate: frozen?.originalDate || override?.originalDate || date,
+locked: !!override,
+done: true
+}));
+continue;
+}
+
+if (override?.date) {
+const status = new Date(override.date) < new Date(task.deadline) ? 'assigned' : 'late-assigned';
+reservedByDate[override.date] = (reservedByDate[override.date] || 0) + UNIT_MINUTES;
+pushUnit(createPlanUnit(task, unitId, override.date, status, { originalDate: override.originalDate || override.date, locked: true }));
+continue;
+}
+
+backlog.push({ task, unitId, taskCreatedAt: inferTaskCreatedAt(task) });
+}
+});
+
 const calendar = [];
-for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
+for(let d=new Date(startDate); d<=maxDL; d.setDate(d.getDate()+1)){
 const ds = toLocalISO(d);
 const capacity = getCapacityForDate(ds);
-const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0) + (lockedByDate[ds] || 0);
+const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0) + Number(reservedByDate[ds] || 0);
 const available = Math.max(0, capacity - reserved);
 if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
 }
 
-const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
-sorted.forEach(task=>{
-const taskKey = getTaskArchiveKey(task);
-// Berechne den Bedarf abzüglich bereits manuell gesetzter (locked) Blöcke dieser Aufgabe
-const alreadyPlannedMinutes = plan.filter(p => getTaskArchiveKey(p) === taskKey).reduce((s,i)=> s + i.minutes, 0);
-let need = Math.max(0, (task.minutes || 0) - alreadyPlannedMinutes);
-
-if (!need) return;
-for(const day of calendar){
-  if(need<=0) break;
-  if(day.remaining<=0) continue;
-  if(new Date(day.date) >= new Date(task.deadline)) continue;
-  
-  // Hier ist der Clou: Wenn der Task von diesem Tag wegverschoben wurde, überspringe ihn.
-  if (taskBlockedDays[taskKey] && taskBlockedDays[taskKey].has(day.date)) continue;
-
-  const alloc = Math.min(need, day.remaining);
-  plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey: taskKey});
-  day.remaining-=alloc;
-  need-=alloc;
+const unscheduled = [];
+backlog.forEach(entry => {
+let assigned = false;
+for (const day of calendar) {
+if (day.remaining < UNIT_MINUTES) continue;
+if (day.date < entry.taskCreatedAt) continue;
+if (new Date(day.date) >= new Date(entry.task.deadline)) continue;
+day.remaining -= UNIT_MINUTES;
+pushUnit(createPlanUnit(entry.task, entry.unitId, day.date, 'assigned'));
+assigned = true;
+break;
 }
-if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey: taskKey});
+if (!assigned) unscheduled.push(entry);
 });
-return plan;
+
+unscheduled.forEach(entry => {
+const overdueUnit = createPlanUnit(entry.task, entry.unitId, '', 'overdue');
+delete overdueUnit.date;
+pushUnit(overdueUnit);
+});
+
+return {
+items: groupPlanUnits(assignedUnits),
+unitMap
+};
 }
 
 function getLockedMovedItems() {
-  return Object.values(window.taskDateOverrides || {})
-    .map(ov => ov && typeof ov === 'object' ? ov.item : null)
-    .filter(Boolean);
+return Object.values(window.taskDateOverrides || {})
+  .map(override => override && typeof override === 'object' ? override.item : null)
+  .filter(Boolean);
 }
 
 // UI helpers
@@ -614,10 +730,11 @@ if (containerId === 'tasks'){
 const prio = div.querySelector('.t-imp')?.value || '1';
 div.classList.add(`priority-${prio}`);
 }
+return div;
 }
 function addTaskRow(){
 const rowId = `task-row-${++taskRowIndex}`;
-createRow('tasks', `
+const row = createRow('tasks', `
      <input class="t-title input-task-name" type="text" id="${rowId}-title" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe">
      <label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label>
      <input class="t-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="0" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden">
@@ -627,7 +744,10 @@ createRow('tasks', `
      <input class="t-imp" type="hidden" value="1">
      <div class="progress-container"></div>
      <div class="danger-badge"></div>
-   `); }
+    `);
+  row.dataset.taskId = createStableId();
+  row.dataset.createdAt = toLocalISO(new Date());
+  }
 const weekdays = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 const weekdayShort = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 function normalizeHoursValue(value){
@@ -690,7 +810,25 @@ if (input) input.value = btn.dataset.priority;
 row.classList.remove('priority-1','priority-2','priority-3');
 row.classList.add(`priority-${btn.dataset.priority}`);
 });
-function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
+function normalizeTaskHours(task){
+const directHours = Number(task?.hours);
+if (Number.isFinite(directHours)) return normalizeHoursValue(directHours);
+const minutes = Number(task?.minutes);
+if (Number.isFinite(minutes)) return normalizeHoursValue(minutes / 60);
+return 0;
+}
+function readTaskRows(includeIncomplete = false){
+return [...document.querySelectorAll('.task-row')].map(r=>({
+_id: r.dataset.taskId || createStableId(),
+createdAt: normalizeDateValue(r.dataset.createdAt) || toLocalISO(new Date()),
+title: r.querySelector('.t-title').value,
+hours: normalizeHoursValue(r.querySelector('.t-hrs').value||0),
+deadline: r.querySelector('.t-dl').value,
+importance: r.querySelector('.t-imp').value
+})).filter(task => includeIncomplete ? (task.title || task.deadline || task.hours > 0) : (task.title && task.deadline));
+}
+function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ _id: r.dataset.taskId || createStableId(), createdAt: normalizeDateValue(r.dataset.createdAt) || toLocalISO(new Date()), title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
+function getStoredTasksFromUI(){ return readTaskRows(true).map(task => ({ ...task, minutes: Math.round(task.hours * 60) })); }
 function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
 function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
 function validateSlotRows(){
@@ -702,8 +840,63 @@ error.classList.remove('visible');
 return true;
 }
 
-function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], completedTaskItems: window.completedTaskItems || {}, exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+function buildTransferPayload(){
+pruneArchivedTasks();
+pruneReservedCapacity();
+const tasks = getStoredTasksFromUI().map(task => ({
+_id: inferTaskId(task),
+createdAt: inferTaskCreatedAt(task),
+title: task.title || '',
+hours: normalizeHoursValue(task.hours),
+minutes: Math.round(normalizeHoursValue(task.hours) * 60),
+deadline: task.deadline || '',
+importance: Number(task.importance) || 1
+}));
+return {
+formatVersion: 2,
+exportedAt: new Date().toLocaleString('de-DE'),
+source: 'standalone-html',
+tasks,
+slots: getSlotsFromUI(),
+exceptions: getExceptionsFromUI(),
+overrides: [],
+capacityVersions: window.capacityVersions || [],
+planSnapshots: window.planSnapshots || {},
+taskDateOverrides: window.taskDateOverrides || {},
+completedTaskKeys: [...(window.completedTaskKeys || new Set())],
+completedTaskItems: window.completedTaskItems || {},
+archivedTasks: window.archivedTasks || [],
+reservedCapacityByDate: window.reservedCapacityByDate || {},
+month: currentMonthDate.toISOString().slice(0,7)
+};
+}
+function getFormData(){ return buildTransferPayload(); }
+function sanitizeRuntimeState(data = {}) {
+const sanitizedCompletedItems = Object.fromEntries(
+Object.entries(data.completedTaskItems && typeof data.completedTaskItems === 'object' ? data.completedTaskItems : {})
+.filter(([key, item]) => isUnitId(key) && isUnitId(item && item.__originalKey))
+);
+
+const sanitizedOverrides = Object.fromEntries(
+Object.entries(data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {})
+.filter(([key, override]) => isUnitId(key) && override && typeof override === 'object')
+);
+
+const sanitizedSnapshots = Object.fromEntries(
+Object.entries(data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {})
+.map(([date, items]) => [date, (Array.isArray(items) ? items : []).filter(item => isUnitId(item && item.__originalKey))])
+);
+
+return {
+...data,
+completedTaskKeys: (Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []).filter(isUnitId),
+completedTaskItems: sanitizedCompletedItems,
+taskDateOverrides: sanitizedOverrides,
+planSnapshots: sanitizedSnapshots
+};
+}
 function fillFormData(data){
+data = sanitizeRuntimeState(data);
 document.getElementById('tasks').innerHTML='';
 document.getElementById('slots').innerHTML='';
 document.getElementById('exceptions').innerHTML='';
@@ -719,7 +912,9 @@ pruneReservedCapacity();
 (data.tasks||[]).forEach(t=> {
 const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
 const rowId = `task-row-${++taskRowIndex}`;
-createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
+const row = createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title || ''}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue(normalizeTaskHours(t))}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline || ''}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
+row.dataset.taskId = inferTaskId(t);
+row.dataset.createdAt = inferTaskCreatedAt(t);
 });
 const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
 renderSlotGrid(currentSlots);
@@ -737,7 +932,7 @@ function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringi
 function saveData(){ persistData(); alert('Daten gespeichert.'); }
 function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
 function loadSavedDataOnStart(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved) return false; try { fillFormData(JSON.parse(saved)); return true; } catch(e) { return false; } }
-function exportData(){ const blob = new Blob([JSON.stringify(getFormData(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
+function exportData(){ const blob = new Blob([JSON.stringify(buildTransferPayload(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
 function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
 function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
 function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
@@ -752,7 +947,13 @@ window.reservedCapacityByDate = {};
 window.capacityVersions = [];
 window.planSnapshots = {};
 
-function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
+function isTaskDone(task){
+const unitIds = Array.isArray(task?.unitIds) && task.unitIds.length
+? task.unitIds
+: [task?.__originalKey].filter(Boolean);
+if (!unitIds.length) return false;
+return unitIds.every(unitId => window.completedTaskKeys && window.completedTaskKeys.has(unitId));
+}
 function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); } // No change
 function getTaskArchiveKey(task){
   if (task._id) return task._id; // Use the stable _id if available (from App.vue tasks)
@@ -810,7 +1011,7 @@ const today = new Date(); today.setHours(0,0,0,0);
 const deadline = new Date(task.deadline); deadline.setHours(0,0,0,0);
 if (deadline < today) return 'deadline';
 const assignedMinutes = assignedItems.reduce((sum,item)=>sum + (item.minutes || 0), 0);
-if (assignedItems.length && assignedMinutes >= (task.minutes || 0) && assignedItems.every(item => window.completedTaskKeys.has(item.__originalKey))) return 'all-slots-done';
+if (assignedItems.length && assignedMinutes >= (task.minutes || 0) && assignedItems.every(item => isTaskDone(item))) return 'all-slots-done';
 return '';
 }
 function archiveCompletedTasks(tasks, results){
@@ -819,8 +1020,8 @@ const archivedIndexes = [];
 tasks.forEach((task, index) => {
 const seenAssignedKeys = new Set();
 const assignedItems = [
-...results.filter(item => item.status === 'assigned' && getTaskArchiveKey(item) === getTaskArchiveKey(task)),
-...Object.values(window.completedTaskItems || {}).filter(item => item && item.status === 'assigned' && window.completedTaskKeys.has(item.__originalKey) && getTaskArchiveKey(item) === getTaskArchiveKey(task))
+...results.filter(item => isScheduledResult(item) && getTaskArchiveKey(item) === getTaskArchiveKey(task)),
+...Object.values(window.completedTaskItems || {}).filter(item => item && isScheduledResult(item) && window.completedTaskKeys.has(item.__originalKey) && getTaskArchiveKey(item) === getTaskArchiveKey(task))
 ].filter(item => {
 if (!item.__originalKey) return true;
 if (seenAssignedKeys.has(item.__originalKey)) return false;
@@ -858,10 +1059,11 @@ function createCalendarTaskElement(task){
 const tb=document.createElement('div');
 const prio = getTaskPriority(task);
 tb.className=`calendar-task task-block priority-${prio}`;
-tb.dataset.originalKey = task.__originalKey || ''; // This is the unique block ID
+tb.dataset.originalKey = task.__originalKey || '';
+tb.dataset.unitIds = serializeUnitIds(task.unitIds || []);
 if (isTaskDone(task)) tb.classList.add('task-done');
 tb.draggable = true;
-tb.dataset.id = task.__originalKey; // Use the stable block ID for D&D
+tb.dataset.id = tb.dataset.unitIds;
 tb.dataset.title = task.title;
 const badge = '!'.repeat(prio);
 tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${task.title}</span><span>${formatHoursValue(task.minutes/60)}h</span>`;
@@ -877,23 +1079,12 @@ validateSlotRows();
 ensureCapacityVersion(slots);
 window.exceptions = exceptions;
 
-  const blockOverrides = window.taskDateOverrides || {};
-const schedulableTasks = applyCarryOverToTasks(tasks);
-  const lockedMovedItems = getLockedMovedItems();
-
-  const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
-    const blockId = item.__originalKey || `${item.taskKey}-${item.date}-${index}`; 
-    return {
-      ...item,
-      id: `plan-${index}`,
-      __originalKey: blockId,
-      date: blockOverrides[blockId] ? (typeof blockOverrides[blockId] === 'string' ? blockOverrides[blockId] : blockOverrides[blockId].date) : item.date,
-      originalDate: blockOverrides[blockId]?.originalDate || item.date
-    };
-});
-snapshotTodayPlan(scheduledResults);
-const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
-window.plan = results; window.tasks = tasks;
+const schedulableTasks = tasks;
+const scheduleResult = schedule(schedulableTasks, slots, exceptions, getLockedMovedItems());
+const results = scheduleResult.items.map((item, index) => ({ ...item, id: `plan-${index}` }));
+window.plan = results;
+window.planUnitMap = scheduleResult.unitMap;
+window.tasks = tasks;
 if (archiveCompletedTasks(tasks, results)) {
 renderMonthView();
 return;
@@ -903,18 +1094,19 @@ return;
   const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
   const schedulableTaskMap = new Map(schedulableTasks.map(st => [getTaskArchiveKey(st), st]));
   const taskProgressData = new Map();
+  const completedMinutesByTask = getCompletedMinutesByTaskKey(tasks);
 
   tasks.forEach(task => {
     const taskKey = getTaskArchiveKey(task);
     const stask = schedulableTaskMap.get(taskKey);
     taskProgressData.set(taskKey, {
       assignedUncompleted: 0,
-      originalTotal: stask ? stask.originalMinutes : Number(task.minutes || 0),
-      completedTotal: stask ? stask.completedMinutes : 0
+      originalTotal: Number(task.minutes || 0),
+      completedTotal: completedMinutesByTask[taskKey] || 0
     });
   });
 
-  results.filter(r => r.status === 'assigned' && !isTaskDone(r)).forEach(result => {
+  results.filter(r => isScheduledResult(r) && !isTaskDone(r)).forEach(result => {
     const taskKey = getTaskArchiveKey(result);
     if (taskProgressData.has(taskKey)) {
       taskProgressData.get(taskKey).assignedUncompleted += result.minutes;
@@ -956,7 +1148,7 @@ const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
 const firstDay = (firstDayRaw + 6) % 7;
 
 const dayPlans = {};
-results.forEach(r=>{ if(r.status==='assigned'){ (dayPlans[r.date] = dayPlans[r.date]||[]).push(r); } });
+results.forEach(r=>{ if(isScheduledResult(r)){ (dayPlans[r.date] = dayPlans[r.date]||[]).push(r); } });
 const deadlineTasks = {};
 tasks.forEach(t=>{ (deadlineTasks[t.deadline]=deadlineTasks[t.deadline]||[]).push(t); });
 
@@ -984,7 +1176,7 @@ const tasksForDay = dayPlans[dateStr]||[];
 const deadlineForDay = deadlineTasks[dateStr]||[];
 const capacity = getCapacityForDate(dateStr);
 const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[dateStr]) || 0);
-const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
+const used = tasksForDay.filter(t => !isTaskDone(t)).reduce((sum,t)=>sum + (t.minutes||0), 0);
 const displayedUsed = used + reserved;
 const util = capacity > 0 ? displayedUsed / capacity : 0;
 const exception = exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
@@ -1057,6 +1249,7 @@ if (hoursInput) sanitizeHourInput(hoursInput);
 renderMonthView();
 persistData();
 });
+let suppressTaskToggleUntil = 0;
 window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); if(!loadSavedDataOnStart()) renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView(); persistData();
 const calendarContainer = document.getElementById('month-calendar');
 if (calendarContainer){
@@ -1074,30 +1267,20 @@ return;
 }
 const taskElement = e.target.closest('.calendar-task');
 if (!taskElement) return;
-if (taskElement.classList.contains('is-dragging')) return;
-taskElement.classList.toggle('task-done');
-const originalKey = taskElement.dataset.originalKey;
-if (!originalKey) return;
-if (taskElement.classList.contains('task-done')) {
-window.completedTaskKeys.add(originalKey);
-const planItem = (window.plan || []).find(item => item.__originalKey === originalKey);
-if (planItem) window.completedTaskItems[originalKey] = freezePlanItem(planItem);
-} else {
-window.completedTaskKeys.delete(originalKey);
-delete window.completedTaskItems[originalKey];
-}
-renderMonthView();
-persistData();
+if (Date.now() < suppressTaskToggleUntil) return;
+toggleTaskDoneState(taskElement);
 });
 calendarContainer.addEventListener('dragstart', e => {
 const taskElement = e.target.closest('.calendar-task');
 if (!taskElement) return;
 taskElement.classList.add('is-dragging');
+e.dataTransfer.effectAllowed = 'move';
 e.dataTransfer.setData('text/plain', taskElement.dataset.id || '');
 });
 calendarContainer.addEventListener('dragend', e => {
 const taskElement = e.target.closest('.calendar-task');
 if (taskElement) taskElement.classList.remove('is-dragging');
+suppressTaskToggleUntil = Date.now() + 250;
 });
 calendarContainer.addEventListener('dragover', e => {
 const dayElement = e.target.closest('.day-cell');
@@ -1113,20 +1296,53 @@ if (dayElement && taskId) moveTaskToDay(taskId, dayElement.dataset.date);
 });
 
 function moveTaskToDay(taskId, newDate){
-const item = (window.plan||[]).find(p => p.__originalKey === taskId || p.id === taskId);
-if (!item) return;
+const unitIds = parseUnitIds(taskId);
+if (!unitIds.length) return;
+
+for (const unitId of unitIds) {
+const item = window.planUnitMap && window.planUnitMap[unitId];
+if (!item) continue;
 if (new Date(newDate) > new Date(item.deadline)){
 alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
 return;
 }
-      const originalDate = item.originalDate || item.date;
-      if (newDate === originalDate) {
-        delete window.taskDateOverrides[taskId];
-      } else if (item.__originalKey) {
-        const frozen = freezePlanItem(item);
-        frozen.originalDate = originalDate;
-        window.taskDateOverrides[taskId] = { date: newDate, item: frozen };
+if (item.taskCreatedAt && newDate < item.taskCreatedAt){
+alert(`Die Aufgabe "${item.title}" darf nicht vor ihrem Startdatum (${formatDateDE(item.taskCreatedAt)}) verschoben werden.`);
+return;
 }
+}
+
+unitIds.forEach(unitId => {
+const item = window.planUnitMap && window.planUnitMap[unitId];
+if (!item) return;
+const originalDate = (window.taskDateOverrides[unitId] && window.taskDateOverrides[unitId].originalDate) || item.originalDate || item.date;
+if (newDate === originalDate) {
+delete window.taskDateOverrides[unitId];
+} else {
+const frozen = freezePlanItem(item);
+frozen.originalDate = originalDate;
+window.taskDateOverrides[unitId] = { date: newDate, originalDate, item: frozen };
+}
+});
+renderMonthView();
+persistData();
+}
+
+function toggleTaskDoneState(taskElement){
+if (!taskElement) return;
+const unitIds = parseUnitIds(taskElement.dataset.unitIds || taskElement.dataset.originalKey);
+if (!unitIds.length) return;
+const markDone = !taskElement.classList.contains('task-done');
+unitIds.forEach(unitId => {
+if (markDone) {
+window.completedTaskKeys.add(unitId);
+const unitItem = window.planUnitMap && window.planUnitMap[unitId];
+if (unitItem) window.completedTaskItems[unitId] = freezePlanItem(unitItem);
+} else {
+window.completedTaskKeys.delete(unitId);
+delete window.completedTaskItems[unitId];
+}
+});
 renderMonthView();
 persistData();
 }

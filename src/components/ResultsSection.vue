@@ -10,7 +10,7 @@
       </div>
       <div class="summary-stat">
         <span>Geplant</span>
-        <strong>{{ (totalAssigned / 60).toFixed(2) }}h</strong>
+        <strong>{{ (totalPlanned / 60).toFixed(2) }}h</strong>
       </div>
       <div class="summary-free">
         <span class="summary-free-label">Freie Zeitfenster</span>
@@ -70,7 +70,7 @@
             <tbody>
               <tr v-for="week in monthCal.weeks" :key="week.weekKey">
                 <td class="border border-gray-300 bg-gray-50 p-2 text-center text-sm font-semibold dark:border-gray-600 dark:bg-gray-800">W{{ week.weekNum }}</td>
-                <td v-for="day in week.days" :key="day.dateStr" :class="getCellClass(day)" class="relative border border-gray-300 p-3 align-top dark:border-gray-600">
+                <td v-for="day in week.days" :key="day.dateStr" :class="getCellClass(day)" class="relative border border-gray-300 p-3 align-top dark:border-gray-600" @dragover.prevent="onDragOver(day)" @drop="onDrop(day)">
                   <div v-if="day.dateStr" class="mb-2 text-lg font-bold">{{ day.dayNum }}</div>
 
                   <div v-if="day.exceptionName" class="mb-2 inline-block rounded bg-purple-200 px-2 py-1 text-xs text-purple-900 dark:bg-purple-700 dark:text-purple-100">
@@ -84,12 +84,16 @@
                   <div class="space-y-1">
                     <div
                       v-for="task in day.tasks"
-                      :key="task.title"
+                      :key="task.unitIds?.join('|') || `${task.title}-${day.dateStr}`"
                       :style="{ backgroundColor: getColorForPriority(task.importance) }"
-                      class="truncate rounded p-1 text-xs text-white"
+                      class="truncate rounded p-1 text-xs text-white cursor-grab"
                       :title="`${task.title} ${(task.minutes / 60).toFixed(2)}h Prio ${task.importance}`"
+                      draggable="true"
+                      @click="toggleDone(task)"
+                      @dragstart="onDragStart($event, task)"
+                      @dragend="onDragEnd"
                     >
-                      {{ task.title }} {{ (task.minutes / 60).toFixed(1) }}h {{ day.dateStr === task.deadline ? 'Deadline' : '' }}
+                      {{ task.title }} {{ (task.minutes / 60).toFixed(1) }}h {{ task.status === 'late-assigned' ? 'Verspaetet' : day.dateStr === task.deadline ? 'Deadline' : '' }}
                     </div>
                   </div>
 
@@ -107,7 +111,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   results: { type: Array, default: () => [] },
@@ -117,7 +121,12 @@ const props = defineProps({
   darkMode: { type: Boolean, default: false }
 })
 
+const emit = defineEmits(['toggle-done', 'move-item'])
+
 const weekDaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+const isScheduledResult = (item) => item.status === 'assigned' || item.status === 'late-assigned'
+const draggedUnitIds = ref('')
+const suppressToggleUntil = ref(0)
 
 const toLocalISO = (date) => date.toLocaleDateString('sv-SE')
 const formatDateDE = (ds) => ds.split('-').reverse().join('.')
@@ -135,25 +144,48 @@ const totalAssigned = computed(() =>
   props.results?.filter(r => r.status === 'assigned').reduce((sum, r) => sum + r.minutes, 0) ?? 0
 )
 
+const totalPlanned = computed(() =>
+  props.results?.filter(isScheduledResult).reduce((sum, r) => sum + r.minutes, 0) ?? 0
+)
+
 const overdueItems = computed(() =>
   props.results?.filter(r => r.status === 'overdue') ?? []
 )
+
+const latestScheduledDate = computed(() => {
+  const scheduledDates = props.results
+    .filter(isScheduledResult)
+    .map(item => item.date)
+    .filter(Boolean)
+
+  return scheduledDates.length > 0 ? scheduledDates.sort().at(-1) : null
+})
+
+const earliestTaskDate = computed(() => {
+  const taskDates = props.tasks
+    .map(task => task.createdAt)
+    .filter(Boolean)
+
+  return taskDates.length > 0 ? taskDates.sort()[0] : null
+})
 
 const dayStats = computed(() => {
   const stats = {}
   if (props.tasks.length === 0) return stats
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const startDate = earliestTaskDate.value ? new Date(earliestTaskDate.value) : new Date()
+  startDate.setHours(0, 0, 0, 0)
   const taskDates = props.tasks.map(t => new Date(t.deadline))
-  const maxDate = new Date(Math.max(...taskDates))
+  const maxDate = latestScheduledDate.value
+    ? new Date(Math.max(...taskDates, new Date(latestScheduledDate.value)))
+    : new Date(Math.max(...taskDates))
 
-  for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(startDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
     const dateStr = toLocalISO(new Date(d))
     stats[dateStr] = { used: 0, capacity: props.capacityByDate[dateStr] || 0 }
   }
 
-  props.results.filter(r => r.status === 'assigned').forEach(r => {
+  props.results.filter(isScheduledResult).forEach(r => {
     if (stats[r.date]) {
       stats[r.date].used += r.minutes
     }
@@ -175,7 +207,7 @@ const unusedDaysMap = computed(() => {
 const dayPlans = computed(() => {
   const plans = {}
   props.results.forEach(r => {
-    if (r.status === 'assigned') {
+    if (isScheduledResult(r)) {
       if (!plans[r.date]) plans[r.date] = []
       plans[r.date].push(r)
     }
@@ -186,13 +218,15 @@ const dayPlans = computed(() => {
 const monthCalendars = computed(() => {
   if (props.tasks.length === 0) return []
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const startDate = earliestTaskDate.value ? new Date(earliestTaskDate.value) : new Date()
+  startDate.setHours(0, 0, 0, 0)
   const taskDates = props.tasks.map(t => new Date(t.deadline))
-  const maxDate = new Date(Math.max(...taskDates))
+  const maxDate = latestScheduledDate.value
+    ? new Date(Math.max(...taskDates, new Date(latestScheduledDate.value)))
+    : new Date(Math.max(...taskDates))
 
   const months = []
-  for (let current = new Date(today.getFullYear(), today.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
+  for (let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1); current <= maxDate; current.setMonth(current.getMonth() + 1)) {
     const month = new Date(current)
     const monthName = month.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
     const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
@@ -263,7 +297,7 @@ const monthCalendars = computed(() => {
 
 const getTaskAssigned = (title) => {
   return props.results
-    .filter(r => r.status === 'assigned' && r.title === title)
+    .filter(r => isScheduledResult(r) && r.title === title)
     .reduce((sum, r) => sum + r.minutes, 0)
 }
 
@@ -305,5 +339,30 @@ const getCellClass = (day) => {
   }
 
   return heatClass
+}
+
+const toggleDone = (task) => {
+  if (!task?.unitIds?.length) return
+  if (Date.now() < suppressToggleUntil.value) return
+  emit('toggle-done', { unitIds: task.unitIds.join('|') })
+}
+
+const onDragStart = (event, task) => {
+  draggedUnitIds.value = task?.unitIds?.join('|') || ''
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', draggedUnitIds.value)
+}
+
+const onDragEnd = () => {
+  draggedUnitIds.value = ''
+  suppressToggleUntil.value = Date.now() + 250
+}
+
+const onDragOver = (day) => !!day?.dateStr
+
+const onDrop = (day) => {
+  if (!day?.dateStr || !draggedUnitIds.value) return
+  emit('move-item', { unitIds: draggedUnitIds.value, newDate: day.dateStr })
+  draggedUnitIds.value = ''
 }
 </script>

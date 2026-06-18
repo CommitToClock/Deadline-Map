@@ -20,7 +20,7 @@
         <div class="live-check">
           <div :class="['live-status', liveCanSchedule ? 'live-status-ok' : 'live-status-warning']">
             <span>{{ liveStatusText }}</span>
-            <strong>{{ (liveTotalAssigned / 60).toFixed(2) }} / {{ (liveTotalNeeded / 60).toFixed(2) }}h geplant</strong>
+            <strong>{{ (liveTotalAssigned / 60).toFixed(2) }} / {{ (liveTotalNeeded / 60).toFixed(2) }}h bis zur Deadline</strong>
           </div>
           <div class="live-stat-card">
             <span>Benoetigt</span>
@@ -28,7 +28,7 @@
           </div>
           <div class="live-stat-card">
             <span>Geplant</span>
-            <strong>{{ (liveTotalAssigned / 60).toFixed(2) }}h</strong>
+            <strong>{{ (liveTotalPlanned / 60).toFixed(2) }}h</strong>
           </div>
           <div class="live-free-card">
             <span>Freie Zeitfenster</span>
@@ -72,7 +72,7 @@
             </summary>
         <div class="step-content">
               <div class="section-actions">
-                <button @click="tasks.push({ _id: Date.now(), title: '', hours: 0, deadline: '', importance: 1 })" class="btn-primary btn-sm">+ Aufgabe</button>
+                <button @click="tasks.push(createEmptyTask())" class="btn-primary btn-sm">+ Aufgabe</button>
               </div>
               <div v-if="tasks.length" class="space-y-3">
                 <div v-for="(task, idx) in tasks" :key="task._id || idx" class="form-card task-form">
@@ -217,6 +217,8 @@
           :exceptions="exceptions"
           :capacityByDate="capacityByDate"
           :darkMode="darkMode"
+          @toggle-done="toggleResultDone"
+          @move-item="moveResultItem"
         />
       </section>
     </div>
@@ -237,14 +239,187 @@ const overrides = ref([])
 const results = ref([])
 const fileInput = ref(null)
 const resultsSection = ref(null)
+const completedTaskKeys = ref([])
+const completedTaskItems = ref({})
+const taskDateOverrides = ref({})
+const planUnitMap = ref({})
 
 const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
 const formatDateDE = (ds) => ds.split('-').reverse().join('.')
+const toLocalISO = (date) => date.toLocaleDateString('sv-SE')
+
+const normalizeDateValue = (value) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  date.setHours(0, 0, 0, 0)
+  return toLocalISO(date)
+}
+
+const inferTaskCreatedAt = (task) => {
+  const explicitDate = normalizeDateValue(task?.createdAt)
+  if (explicitDate) return explicitDate
+
+  const rawId = Number(task?._id)
+  if (Number.isFinite(rawId) && rawId > 100000000000) {
+    const inferredDate = normalizeDateValue(rawId)
+    if (inferredDate) return inferredDate
+  }
+
+  return toLocalISO(new Date())
+}
+
+const ensureTaskMetadata = (task) => {
+  if (!task) return task
+  task.createdAt = inferTaskCreatedAt(task)
+  return task
+}
+
+const normalizeTaskMetadata = (arr) => {
+  if (!Array.isArray(arr)) return
+  arr.forEach(task => ensureTaskMetadata(task))
+}
+
+const createEmptyTask = () => ({
+  _id: Date.now(),
+  title: '',
+  hours: 0,
+  deadline: '',
+  importance: 1,
+  createdAt: toLocalISO(new Date())
+})
+
+const normalizeTaskHours = (task) => {
+  const directHours = Number(task?.hours)
+  if (Number.isFinite(directHours)) return directHours
+
+  const minutes = Number(task?.minutes)
+  if (Number.isFinite(minutes)) return minutes / 60
+
+  return 0
+}
+
+const normalizeImportedTasks = (rawTasks) =>
+  (Array.isArray(rawTasks) ? rawTasks : []).map(task => ({
+    _id: task?._id || Date.now() + Math.random(),
+    title: task?.title || '',
+    hours: normalizeTaskHours(task),
+    deadline: task?.deadline || '',
+    importance: Number(task?.importance) || 1,
+    createdAt: inferTaskCreatedAt(task)
+  }))
+
+const normalizeImportedSlots = (data) => {
+  const directSlots = Array.isArray(data?.slots) ? data.slots : []
+  const fallbackSlots = directSlots.length > 0
+    ? directSlots
+    : [...(Array.isArray(data?.capacityVersions) ? data.capacityVersions : [])]
+      .sort((a, b) => String(b?.validFrom || '').localeCompare(String(a?.validFrom || '')))[0]?.slots || []
+
+  return fallbackSlots.map(slot => ({
+    _id: slot?._id || Date.now() + Math.random(),
+    day: slot?.day || 'Montag',
+    hours: Number(slot?.hours) || 0
+  }))
+}
+
+const normalizeImportedExceptions = (rawExceptions) =>
+  (Array.isArray(rawExceptions) ? rawExceptions : []).map(exception => ({
+    _id: exception?._id || Date.now() + Math.random(),
+    name: exception?.name || '',
+    from: exception?.from || '',
+    to: exception?.to || ''
+  }))
+
+const normalizeImportedOverrides = (rawOverrides) =>
+  (Array.isArray(rawOverrides) ? rawOverrides : []).map(override => ({
+    _id: override?._id || Date.now() + Math.random(),
+    year: Number(override?.year) || new Date().getFullYear(),
+    week: Number(override?.week) || 1,
+    slots: { ...(override?.slots || {}) }
+  }))
+
+const UNIT_MINUTES = 15
+const buildUnitId = (taskKey, unitIndex) => `${taskKey}::${unitIndex}`
+const parseUnitIds = (value) => String(value || '').split('|').filter(Boolean)
+const getTaskKey = (task) => String(task?._id || `${task?.title || ''}|${task?.deadline || ''}|${task?.importance || 1}`)
+
+const isUnitId = (value) => typeof value === 'string' && value.includes('::')
+
+const sanitizeRuntimeState = (data = {}) => {
+  const sanitizeEntries = (source) => Object.fromEntries(
+    Object.entries(source && typeof source === 'object' ? source : {})
+      .filter(([key, item]) => isUnitId(key) && isUnitId(item?.__originalKey))
+  )
+
+  return {
+    completedTaskKeys: (Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []).filter(isUnitId),
+    completedTaskItems: sanitizeEntries(data.completedTaskItems),
+    taskDateOverrides: Object.fromEntries(
+      Object.entries(data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {})
+        .filter(([key]) => isUnitId(key))
+    )
+  }
+}
+
+const buildTransferPayload = () => ({
+  formatVersion: 2,
+  exportedAt: new Date().toLocaleString('de-DE'),
+  source: 'vue-app',
+  tasks: tasks.value.map(task => ({
+    _id: task._id,
+    title: task.title || '',
+    hours: Number(task.hours) || 0,
+    minutes: Math.round((Number(task.hours) || 0) * 60),
+    deadline: task.deadline || '',
+    importance: Number(task.importance) || 1,
+    createdAt: inferTaskCreatedAt(task)
+  })),
+  slots: slots.value.map(slot => ({
+    _id: slot._id,
+    day: slot.day,
+    hours: Number(slot.hours) || 0
+  })),
+  exceptions: exceptions.value.map(exception => ({
+    _id: exception._id,
+    name: exception.name || '',
+    from: exception.from || '',
+    to: exception.to || ''
+  })),
+  overrides: overrides.value.map(override => ({
+    _id: override._id,
+    year: override.year,
+    week: override.week,
+    slots: { ...(override.slots || {}) }
+  })),
+  completedTaskKeys: [...completedTaskKeys.value],
+  completedTaskItems: { ...completedTaskItems.value },
+  taskDateOverrides: { ...taskDateOverrides.value },
+  capacityVersions: [{
+    validFrom: planningStartDate.value || toLocalISO(new Date()),
+    slots: slots.value.map(slot => ({ day: slot.day, hours: Number(slot.hours) || 0 }))
+  }]
+})
+
+const applyImportedData = (data) => {
+  const runtimeState = sanitizeRuntimeState(data)
+  tasks.value = normalizeImportedTasks(data?.tasks)
+  normalizeTaskMetadata(tasks.value)
+  slots.value = normalizeImportedSlots(data)
+  exceptions.value = normalizeImportedExceptions(data?.exceptions)
+  overrides.value = normalizeImportedOverrides(data?.overrides)
+  completedTaskKeys.value = runtimeState.completedTaskKeys
+  completedTaskItems.value = runtimeState.completedTaskItems
+  taskDateOverrides.value = runtimeState.taskDateOverrides
+  assignUniqueIds(tasks.value)
+  assignUniqueIds(slots.value)
+  assignUniqueIds(exceptions.value)
+  assignUniqueIds(overrides.value)
+}
 
 const computedTasks = computed(() =>
   tasks.value
     .filter(t => t.title && t.deadline)
-    .map(t => ({ ...t, minutes: (Number(t.hours) || 0) * 60 }))
+    .map(t => ({ ...t, createdAt: inferTaskCreatedAt(t), minutes: (Number(t.hours) || 0) * 60 }))
 )
 
 const slotMap = computed(() => {
@@ -252,8 +427,6 @@ const slotMap = computed(() => {
   slots.value.forEach(s => { map[s.day] = Math.round((Number(s.hours) || 0) * 60) })
   return map
 })
-
-const toLocalISO = (date) => date.toLocaleDateString('sv-SE')
 
 const getWeekNumber = (d) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -291,15 +464,26 @@ const getCapacityForDay = (dateStr) => {
   return getStandardCapacity(dateStr)
 }
 
+const isScheduledResult = (item) =>
+  item.status === 'assigned' || item.status === 'late-assigned'
+
+const planningStartDate = computed(() => {
+  if (computedTasks.value.length === 0) return null
+
+  return computedTasks.value
+    .map(task => inferTaskCreatedAt(task))
+    .sort()[0]
+})
+
 const capacityByDate = computed(() => {
   const capacities = {}
-  if (computedTasks.value.length === 0) return capacities
+  if (computedTasks.value.length === 0 || !planningStartDate.value) return capacities
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const startDate = new Date(planningStartDate.value)
+  startDate.setHours(0, 0, 0, 0)
   const maxDate = new Date(Math.max(...computedTasks.value.map(t => new Date(t.deadline))))
 
-  for (let d = new Date(today); d <= maxDate; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(startDate); d <= maxDate; d.setDate(d.getDate() + 1)) {
     const dateStr = toLocalISO(new Date(d))
     capacities[dateStr] = getCapacityForDay(dateStr)
   }
@@ -307,63 +491,152 @@ const capacityByDate = computed(() => {
   return capacities
 })
 
-const schedule = (tasksToSchedule) => {
-  const plan = []
-  const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-  const sortedTasks = [...tasksToSchedule].sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+const completedTaskKeySet = computed(() => new Set(completedTaskKeys.value))
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const maxDL = new Date(Math.max(...tasksToSchedule.map(t => new Date(t.deadline))))
+const createPlanUnit = (task, unitId, date, status, extra = {}) => ({
+  title: task.title,
+  minutes: UNIT_MINUTES,
+  status,
+  importance: task.importance,
+  deadline: task.deadline,
+  taskKey: getTaskKey(task),
+  taskCreatedAt: inferTaskCreatedAt(task),
+  date,
+  __originalKey: unitId,
+  unitIds: [unitId],
+  originalDate: extra.originalDate || date,
+  locked: !!extra.locked
+})
 
-  const calendar = []
-  for (let d = new Date(today); d <= maxDL; d.setDate(d.getDate() + 1)) {
-    const dStr = toLocalISO(d)
-    const capacity = getCapacityForDay(dStr)
+const groupPlanUnits = (units) => {
+  const grouped = new Map()
 
-    if (capacity > 0) {
-      calendar.push({ date: dStr, day: dayNames[d.getDay()], remaining: capacity })
-    }
-  }
-
-  sortedTasks.forEach(task => {
-    let needed = task.minutes
-    for (const day of calendar) {
-      if (needed <= 0) break
-      if (day.remaining <= 0) continue
-      if (new Date(day.date) >= new Date(task.deadline)) continue
-
-      const alloc = Math.min(needed, day.remaining)
-      plan.push({
-        date: day.date,
-        dayName: day.day,
-        title: task.title,
-        minutes: alloc,
-        importance: task.importance,
-        deadline: task.deadline,
-        status: 'assigned'
+  units.forEach(unit => {
+    const groupKey = [unit.date || '', unit.status, unit.taskKey, unit.deadline, unit.importance].join('|')
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
+        date: unit.date,
+        title: unit.title,
+        minutes: 0,
+        status: unit.status,
+        importance: unit.importance,
+        deadline: unit.deadline,
+        taskKey: unit.taskKey,
+        taskCreatedAt: unit.taskCreatedAt,
+        __originalKey: unit.__originalKey,
+        originalDate: unit.originalDate || unit.date,
+        unitIds: []
       })
-      day.remaining -= alloc
-      needed -= alloc
     }
 
-    if (needed > 0) {
-      plan.push({ title: task.title, minutes: needed, status: 'overdue' })
-    }
+    const entry = grouped.get(groupKey)
+    entry.minutes += unit.minutes
+    entry.unitIds.push(unit.__originalKey)
   })
 
-  return plan.sort((a, b) => {
+  return [...grouped.values()].sort((a, b) => {
     if (!a.date && !b.date) return 0
     if (!a.date) return 1
     if (!b.date) return -1
-    if (a.date !== b.date) return a.date > b.date ? 1 : -1
-    return parseInt(b.importance) - parseInt(a.importance)
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return Number(b.importance || 0) - Number(a.importance || 0)
   })
+}
+
+const schedule = (tasksToSchedule) => {
+  const activeTasks = (tasksToSchedule || []).filter(task => task.title && task.deadline && Number(task.minutes || 0) > 0)
+  if (!activeTasks.length) return { items: [], unitMap: {} }
+
+  const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+  const completedSet = completedTaskKeySet.value
+  const overridesMap = taskDateOverrides.value || {}
+  const sortedTasks = [...activeTasks].sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+  const startDate = planningStartDate.value ? new Date(planningStartDate.value) : new Date()
+  startDate.setHours(0, 0, 0, 0)
+  const maxDL = new Date(Math.max(...activeTasks.map(t => new Date(t.deadline))))
+
+  const reservedByDate = {}
+  const assignedUnits = []
+  const unitMap = {}
+  const backlog = []
+
+  const pushUnit = (unit) => {
+    assignedUnits.push(unit)
+    unitMap[unit.__originalKey] = unit
+  }
+
+  sortedTasks.forEach(task => {
+    const taskKey = getTaskKey(task)
+    const totalUnits = Math.round(Number(task.minutes || 0) / UNIT_MINUTES)
+    for (let unitIndex = 0; unitIndex < totalUnits; unitIndex++) {
+      const unitId = buildUnitId(taskKey, unitIndex)
+      const override = overridesMap[unitId]
+
+      if (completedSet.has(unitId)) {
+        const frozen = completedTaskItems.value[unitId] || override?.item
+        const date = frozen?.date || override?.date || inferTaskCreatedAt(task)
+        reservedByDate[date] = (reservedByDate[date] || 0) + UNIT_MINUTES
+        continue
+      }
+
+      if (override?.date) {
+        reservedByDate[override.date] = (reservedByDate[override.date] || 0) + UNIT_MINUTES
+        pushUnit(createPlanUnit(task, unitId, override.date, 'assigned', {
+          originalDate: override.originalDate || override.date,
+          locked: true
+        }))
+        continue
+      }
+
+      backlog.push({ task, unitId, taskCreatedAt: inferTaskCreatedAt(task) })
+    }
+  })
+
+  const calendar = []
+  for (let d = new Date(startDate); d <= maxDL; d.setDate(d.getDate() + 1)) {
+    const dateStr = toLocalISO(d)
+    const capacity = getCapacityForDay(dateStr)
+    const reserved = Number(reservedByDate[dateStr] || 0)
+    const available = Math.max(0, capacity - reserved)
+    if (available > 0) {
+      calendar.push({ date: dateStr, day: dayNames[d.getDay()], remaining: available })
+    }
+  }
+
+  const unscheduled = []
+  backlog.forEach(entry => {
+    let assigned = false
+    for (const day of calendar) {
+      if (day.remaining < UNIT_MINUTES) continue
+      if (day.date < entry.taskCreatedAt) continue
+      if (new Date(day.date) >= new Date(entry.task.deadline)) continue
+
+      day.remaining -= UNIT_MINUTES
+      pushUnit(createPlanUnit(entry.task, entry.unitId, day.date, 'assigned'))
+      assigned = true
+      break
+    }
+
+    if (!assigned) unscheduled.push(entry)
+  })
+
+  unscheduled.forEach(entry => {
+    const overdueUnit = createPlanUnit(entry.task, entry.unitId, '', 'overdue')
+    delete overdueUnit.date
+    pushUnit(overdueUnit)
+  })
+
+  return {
+    items: groupPlanUnits(assignedUnits),
+    unitMap
+  }
 }
 
 const liveResults = computed(() => {
   if (computedTasks.value.length === 0) return []
-  return schedule(computedTasks.value)
+  const scheduleResult = schedule(computedTasks.value)
+  planUnitMap.value = scheduleResult.unitMap
+  return scheduleResult.items
 })
 
 const liveTotalNeeded = computed(() =>
@@ -373,6 +646,12 @@ const liveTotalNeeded = computed(() =>
 const liveTotalAssigned = computed(() =>
   liveResults.value
     .filter(item => item.status === 'assigned')
+    .reduce((sum, item) => sum + item.minutes, 0)
+)
+
+const liveTotalPlanned = computed(() =>
+  liveResults.value
+    .filter(isScheduledResult)
     .reduce((sum, item) => sum + item.minutes, 0)
 )
 
@@ -388,7 +667,7 @@ const liveStatusText = computed(() => {
 const liveProgressItems = computed(() =>
   computedTasks.value.map(task => {
     const assigned = liveResults.value
-      .filter(item => item.status === 'assigned' && item.title === task.title)
+      .filter(item => isScheduledResult(item) && item.title === task.title)
       .reduce((sum, item) => sum + item.minutes, 0)
     const percentRaw = task.minutes > 0 ? (assigned / task.minutes) * 100 : 0
     const percent = Math.min(percentRaw, 100)
@@ -409,7 +688,7 @@ const liveUnusedDays = computed(() => {
 
   const usedByDate = {}
   liveResults.value
-    .filter(item => item.status === 'assigned')
+    .filter(isScheduledResult)
     .forEach(item => {
       usedByDate[item.date] = (usedByDate[item.date] || 0) + item.minutes
     })
@@ -423,25 +702,91 @@ const liveUnusedDays = computed(() => {
     .sort((a, b) => a.date.localeCompare(b.date))
 })
 
+const toggleResultDone = (payload) => {
+  const unitIds = parseUnitIds(payload?.unitIds)
+  if (unitIds.length === 0) return
+
+  const completedSet = new Set(completedTaskKeys.value)
+  const shouldMarkDone = !unitIds.every(unitId => completedSet.has(unitId))
+
+  unitIds.forEach(unitId => {
+    if (shouldMarkDone) {
+      completedSet.add(unitId)
+      const unitItem = planUnitMap.value[unitId]
+      if (unitItem) {
+        completedTaskItems.value = {
+          ...completedTaskItems.value,
+          [unitId]: { ...unitItem }
+        }
+      }
+    } else {
+      completedSet.delete(unitId)
+      const nextCompletedItems = { ...completedTaskItems.value }
+      delete nextCompletedItems[unitId]
+      completedTaskItems.value = nextCompletedItems
+    }
+  })
+
+  completedTaskKeys.value = [...completedSet]
+  const scheduleResult = schedule(computedTasks.value)
+  planUnitMap.value = scheduleResult.unitMap
+  results.value = scheduleResult.items
+}
+
+const moveResultItem = ({ unitIds, newDate }) => {
+  const parsedUnitIds = parseUnitIds(unitIds)
+  if (parsedUnitIds.length === 0 || !newDate) return
+
+  for (const unitId of parsedUnitIds) {
+    const item = planUnitMap.value[unitId]
+    if (!item) continue
+    if (new Date(newDate) > new Date(item.deadline)) {
+      alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`)
+      return
+    }
+    if (item.taskCreatedAt && newDate < item.taskCreatedAt) {
+      alert(`Die Aufgabe "${item.title}" darf nicht vor ihrem Startdatum (${formatDateDE(item.taskCreatedAt)}) verschoben werden.`)
+      return
+    }
+  }
+
+  const nextOverrides = { ...taskDateOverrides.value }
+  parsedUnitIds.forEach(unitId => {
+    const item = planUnitMap.value[unitId]
+    if (!item) return
+    const originalDate = nextOverrides[unitId]?.originalDate || item.originalDate || item.date
+    if (newDate === originalDate) {
+      delete nextOverrides[unitId]
+    } else {
+      nextOverrides[unitId] = {
+        date: newDate,
+        originalDate,
+        item: { ...item }
+      }
+    }
+  })
+
+  taskDateOverrides.value = nextOverrides
+  const scheduleResult = schedule(computedTasks.value)
+  planUnitMap.value = scheduleResult.unitMap
+  results.value = scheduleResult.items
+}
+
 const runSchedule = () => {
   if (computedTasks.value.length === 0) {
     alert('Bitte Aufgaben eingeben!')
     return
   }
-  results.value = schedule(computedTasks.value)
+  const scheduleResult = schedule(computedTasks.value)
+  planUnitMap.value = scheduleResult.unitMap
+  results.value = scheduleResult.items
   nextTick(() => {
     resultsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 
 const saveData = () => {
-  const data = {
-    tasks: tasks.value,
-    slots: slots.value,
-    exceptions: exceptions.value,
-    overrides: overrides.value
-  }
-  localStorage.setItem('lernplan_data', JSON.stringify(data))
+  localStorage.setItem('lernplan_data', JSON.stringify(buildTransferPayload()))
   alert('Daten gespeichert!')
 }
 
@@ -457,15 +802,7 @@ const assignUniqueIds = (arr) => {
 const loadData = () => {
   const saved = localStorage.getItem('lernplan_data')
   if (saved) {
-    const data = JSON.parse(saved)
-    tasks.value = data.tasks || []
-    slots.value = data.slots || []
-    exceptions.value = data.exceptions || []
-    assignUniqueIds(tasks.value);
-    assignUniqueIds(slots.value);
-    assignUniqueIds(exceptions.value);
-    assignUniqueIds(overrides.value);
-    overrides.value = data.overrides || []
+    applyImportedData(JSON.parse(saved))
     alert('Daten geladen!')
   } else {
     alert('Keine gespeicherten Daten gefunden!')
@@ -473,14 +810,7 @@ const loadData = () => {
 }
 
 const exportData = () => {
-  const data = {
-    tasks: tasks.value,
-    slots: slots.value,
-    exceptions: exceptions.value,
-    overrides: overrides.value,
-    exportedAt: new Date().toLocaleString('de-DE')
-  }
-  const json = JSON.stringify(data, null, 2)
+  const json = JSON.stringify(buildTransferPayload(), null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -502,15 +832,7 @@ const handleImport = (e) => {
   const reader = new FileReader()
   reader.onload = (event) => {
     try {
-      const data = JSON.parse(event.target.result)
-      tasks.value = data.tasks || []
-      slots.value = data.slots || []
-      exceptions.value = data.exceptions || []
-      assignUniqueIds(tasks.value);
-      assignUniqueIds(slots.value);
-      assignUniqueIds(exceptions.value);
-      assignUniqueIds(overrides.value);
-      overrides.value = data.overrides || []
+      applyImportedData(JSON.parse(event.target.result))
       alert('Daten importiert!')
     } catch (error) {
       alert('Fehler beim Importieren: ' + error.message)
@@ -553,15 +875,7 @@ onMounted(() => {
   if (saved) {
     const loadQuestion = confirm('Gespeicherte Daten gefunden! Moechtest du sie laden?')
     if (loadQuestion) {
-      const data = JSON.parse(saved)
-      tasks.value = data.tasks || []
-      slots.value = data.slots || []
-      exceptions.value = data.exceptions || []
-      assignUniqueIds(tasks.value);
-      assignUniqueIds(slots.value);
-      assignUniqueIds(exceptions.value);
-      assignUniqueIds(overrides.value);
-      overrides.value = data.overrides || []
+      applyImportedData(JSON.parse(saved))
     }
   }
 })
