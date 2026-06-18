@@ -243,7 +243,7 @@
     .archive-meta-group{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;flex-wrap:wrap;}
     .archive-meta{font-size:0.76rem;color:var(--text-muted);white-space:nowrap;}
     .archive-empty{padding:6px 8px;color:var(--text-muted);font-weight:700;font-size:0.84rem;}
-    .section-description{display:none;font-size:0.82rem;color:var(--text-muted);margin-bottom:0.65rem;line-height:1.35;}
+    .section-description{font-size:0.78rem;color:var(--text-muted);margin:0 0 0.45rem;line-height:1.25;font-weight:700;}
     .info-icon{display:inline-flex;align-items:center;justify-content:center;margin-left:0.35rem;width:1.3rem;height:1.3rem;font-size:0.85rem;line-height:1;border-radius:999px;background:rgba(37,99,235,0.12);color:var(--text);cursor:help;}
     .info-icon:hover{background:rgba(37,99,235,0.18);}
     .import-info{display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center;margin:0.5rem 0 1rem;color:var(--text-soft);font-size:0.9rem;}
@@ -406,6 +406,7 @@
       <div id="tasks"></div>
     </section>
     <section class="card-panel tab-content" id="slots-panel" data-tab="slots">
+      <p class="section-description">Lernzeit pro Wochentag in Stunden</p>
       <div id="slots-error" class="form-error" role="alert"></div>
       <div id="slots"></div>
     </section>
@@ -413,6 +414,7 @@
       <div id="exceptions"></div>
     </section>
     <section class="card-panel tab-content" id="overrides-panel" data-tab="overrides">
+      <p class="section-description">Abweichende Lernzeit pro Kalenderwoche in Stunden</p>
       <div id="overrides"></div>
     </section>
     <section class="card-panel tab-content" id="completed-panel" data-tab="completed">
