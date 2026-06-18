@@ -93,4 +93,4 @@ Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen 
 
 Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.
 
-Die normalen Slots bilden den Standard-Lernplan. Im Bereich `KW-Kapazitaeten` koennen einzelne Kalenderwochen davon abweichen. Die Werte einer KW koennen ab der gewaehlten KW in `Slots` uebernommen und dort weiter bearbeitet werden; wenn die KW-Kapazitaet spaeter geloescht wird, bleibt der uebernommene Slot-Standard erhalten.
+Die normalen Slots bilden den Basis-Lernplan. Im Bereich `KW-Kapazitaeten` koennen einzelne Kalenderwochen davon abweichen. Die Werte einer KW koennen ab der gewaehlten KW in `Slots` uebernommen und dort weiter bearbeitet werden; vorherige Wochen nutzen weiter den bisherigen Basis-Slotplan. Wenn die KW-Kapazitaet spaeter geloescht wird, bleibt der uebernommene Slot-Standard erhalten.

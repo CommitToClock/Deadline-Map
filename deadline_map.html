@@ -672,6 +672,9 @@
         alert('Bitte Jahr und KW korrekt eingeben.');
         return;
       }
+      if (!window.activeSlotStandardKey) {
+        window.baseSlots = getSlotsFromUI();
+      }
       window.slotStandardRules = (window.slotStandardRules || [])
         .filter(item => weekSortKey(item.year, item.week) !== weekSortKey(rule.year, rule.week));
       window.slotStandardRules.push(rule);
@@ -687,6 +690,10 @@
       if (!rule) return;
       rule.slots = slotsListToObject(getSlotsFromUI());
     }
+    function syncBaseSlotsFromSlots() {
+      if (window.activeSlotStandardKey) return;
+      window.baseSlots = getSlotsFromUI();
+    }
     function validateSlotRows(){
       const error = document.getElementById('slots-error');
       if (error) {
@@ -696,13 +703,14 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); syncActiveSlotStandardFromSlots(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), slotStandardRules: window.slotStandardRules || [], activeSlotStandardKey: window.activeSlotStandardKey || 0, exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); syncActiveSlotStandardFromSlots(); syncBaseSlotsFromSlots(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), baseSlots: window.baseSlots || [], slotStandardRules: window.slotStandardRules || [], activeSlotStandardKey: window.activeSlotStandardKey || 0, exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
       document.getElementById('exceptions').innerHTML='';
       document.getElementById('overrides').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
+      window.baseSlots = Array.isArray(data.baseSlots) ? data.baseSlots : (data.slots || []);
       window.slotStandardRules = Array.isArray(data.slotStandardRules) ? data.slotStandardRules : [];
       window.activeSlotStandardKey = Number(data.activeSlotStandardKey || 0);
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
@@ -740,6 +748,7 @@
     window.archivedTasks = [];
     window.reservedCapacityByDate = {};
     window.weeklyCapacityOverrides = [];
+    window.baseSlots = [];
     window.slotStandardRules = [];
     window.activeSlotStandardKey = 0;
 
@@ -846,7 +855,10 @@
 
     function renderMonthView(){
       const tasks = getTasksFromUI();
-      const slots = getSlotsFromUI();
+      const visibleSlots = getSlotsFromUI();
+      if (window.activeSlotStandardKey) syncActiveSlotStandardFromSlots();
+      else window.baseSlots = visibleSlots;
+      const slots = (window.baseSlots && window.baseSlots.length) ? window.baseSlots : visibleSlots;
       const exceptions = getExceptionsFromUI();
       const weeklyOverrides = getOverridesFromUI();
       pruneReservedCapacity();
