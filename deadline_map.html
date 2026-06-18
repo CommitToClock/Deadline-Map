@@ -479,9 +479,13 @@
     function snapshotTodayPlan(results) {
       const todayStr = toLocalISO(new Date());
       window.planSnapshots = window.planSnapshots || {};
-      window.planSnapshots[todayStr] = results
+      const currentItems = results
         .filter(item => item.status === 'assigned' && item.date === todayStr)
         .map(freezePlanItem);
+      const currentKeys = new Set(currentItems.map(item => item.__originalKey));
+      const preservedDoneItems = (window.planSnapshots[todayStr] || [])
+        .filter(item => window.completedTaskKeys.has(item.__originalKey) && !currentKeys.has(item.__originalKey));
+      window.planSnapshots[todayStr] = [...preservedDoneItems, ...currentItems];
     }
     function mergeHistoricalSnapshots(results) {
       const todayStr = toLocalISO(new Date());
@@ -489,6 +493,23 @@
         .filter(([date]) => date < todayStr)
         .flatMap(([, items]) => (items || []).map(item => ({ ...item, status: item.status || 'assigned' })));
       return [...historical, ...results];
+    }
+    function getCompletedMinutesByTaskKey() {
+      const totals = {};
+      Object.values(window.planSnapshots || {}).flat().forEach(item => {
+        if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return;
+        const key = getTaskArchiveKey(item);
+        totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
+      });
+      return totals;
+    }
+    function applyCarryOverToTasks(tasks) {
+      const completedByTask = getCompletedMinutesByTaskKey();
+      return tasks.map(task => {
+        const completedMinutes = completedByTask[getTaskArchiveKey(task)] || 0;
+        const remainingMinutes = Math.max(0, Number(task.minutes || 0) - completedMinutes);
+        return { ...task, minutes: remainingMinutes, originalMinutes: task.minutes, completedMinutes };
+      }).filter(task => task.minutes > 0);
     }
     function pruneReservedCapacity(){
       const todayStr = toLocalISO(new Date());
@@ -787,7 +808,8 @@
       ensureCapacityVersion(slots);
       window.exceptions = exceptions;
       const overrides = window.taskDateOverrides || {};
-      const scheduledResults = schedule(tasks, slots, exceptions).map((item,index)=>{
+      const schedulableTasks = applyCarryOverToTasks(tasks);
+      const scheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
         const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
         return { ...item, id: `plan-${index}`, __originalKey: originalKey, date: overrides[originalKey] || item.date };
       });
@@ -800,7 +822,8 @@
       }
 
       const assignedMinutes = tasks.map(() => 0);
-      results.filter(r => r.status === 'assigned').forEach(result => {
+      const todayStr = toLocalISO(new Date());
+      results.filter(r => r.status === 'assigned' && (r.date >= todayStr || isTaskDone(r))).forEach(result => {
         const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
         if (idx >= 0) assignedMinutes[idx] += result.minutes;
       });
@@ -840,7 +863,6 @@
       const container = document.getElementById('month-calendar'); container.innerHTML = '';
       const headerBlank = document.createElement('div'); headerBlank.className = 'week-number'; container.appendChild(headerBlank);
       ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(d=>{ const cell=document.createElement('div'); cell.className='weekday-label'; cell.textContent=d; container.appendChild(cell); });
-      const todayStr = toLocalISO(new Date());
       const totalCells = firstDay + daysInMonth;
       const weeks = Math.ceil(totalCells / 7);
       let day = 1;

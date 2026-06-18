@@ -92,4 +92,4 @@ Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen 
 
 Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.
 
-Im Bereich `Kapazitaeten` werden die Standard-Slots fuer die Wochentage gepflegt. Aenderungen werden historisiert: Jeder geaenderte Slot-Stand wird mit einem `gueltig ab`-Datum gespeichert. Der Kalender nutzt fuer vergangene Tage die damals gueltige Kapazitaet und haelt geplante Lernzeit fuer vergangene Tage als Snapshot fest, damit spaetere Slot-Aenderungen alte Planungstage nicht ueberschreiben.
+Im Bereich `Kapazitaeten` werden die Standard-Slots fuer die Wochentage gepflegt. Aenderungen werden historisiert: Jeder geaenderte Slot-Stand wird mit einem `gueltig ab`-Datum gespeichert. Der Kalender nutzt fuer vergangene Tage die damals gueltige Kapazitaet und haelt geplante Lernzeit fuer vergangene Tage als Snapshot fest, damit spaetere Slot-Aenderungen alte Planungstage nicht ueberschreiben. Nicht erledigte Stunden aus vergangenen Snapshots werden als Restaufwand erkannt und in die zukuenftige Planung uebernommen.
