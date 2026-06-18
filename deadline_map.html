@@ -567,9 +567,10 @@
         lockedByTask[getTaskArchiveKey(item)] = (lockedByTask[getTaskArchiveKey(item)] || 0) + Number(item.minutes || 0);
       });
       const today = new Date(); today.setHours(0,0,0,0);
+      const planningStart = new Date(today); planningStart.setDate(planningStart.getDate() + 1);
       const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
       const calendar = [];
-      for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
+      for(let d=new Date(planningStart); d<=maxDL; d.setDate(d.getDate()+1)){
         const ds = toLocalISO(d);
         const capacity = getCapacityForDate(ds);
         const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
