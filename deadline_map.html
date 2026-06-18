@@ -424,16 +424,72 @@
     function isException(dateStr) {
       return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
-    function getCapacityForDate(dateStr, slotMap = window.slotMap || {}) {
-      if (dateStr < toLocalISO(new Date())) return 0;
+    function getCapacityForDate(dateStr) {
       if (isException(dateStr)) return 0;
       const date = new Date(dateStr);
       const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
-      return slotMap[dayName] || 0;
+      return buildSlotMap(getSlotsForDate(dateStr))[dayName] || 0;
     }
 
     // small utilities
     function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=(Number(s.hours)||0)*60); return m; }
+    function normalizeSlotsList(slots = []) {
+      const map = new Map((slots || []).map(slot => [slot.day, normalizeHoursValue(slot.hours || 0)]));
+      return weekdays.map(day => ({ day, hours: map.get(day) || 0 })).filter(slot => slot.hours > 0);
+    }
+    function slotsSignature(slots = []) {
+      return normalizeSlotsList(slots).map(slot => `${slot.day}:${slot.hours}`).join('|');
+    }
+    function getSlotsForDate(dateStr) {
+      const versions = [...(window.capacityVersions || [])]
+        .filter(version => version.validFrom && version.validFrom <= dateStr)
+        .sort((a, b) => b.validFrom.localeCompare(a.validFrom));
+      if (versions[0]) return normalizeSlotsList(versions[0].slots || []);
+      const firstVersion = [...(window.capacityVersions || [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom))[0];
+      return normalizeSlotsList(firstVersion?.slots || getSlotsFromUI());
+    }
+    function ensureCapacityVersion(slots) {
+      const todayStr = toLocalISO(new Date());
+      const normalized = normalizeSlotsList(slots);
+      window.capacityVersions = Array.isArray(window.capacityVersions) ? window.capacityVersions : [];
+      if (!window.capacityVersions.length) {
+        window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+        return;
+      }
+      window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+      const latest = window.capacityVersions[window.capacityVersions.length - 1];
+      if (slotsSignature(latest.slots) === slotsSignature(normalized)) return;
+      const todayVersion = window.capacityVersions.find(version => version.validFrom === todayStr);
+      if (todayVersion) todayVersion.slots = normalized;
+      else window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+      window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+    }
+    function freezePlanItem(item) {
+      return {
+        date: item.date,
+        title: item.title,
+        minutes: item.minutes,
+        status: item.status,
+        importance: item.importance,
+        deadline: item.deadline,
+        taskKey: item.taskKey,
+        __originalKey: item.__originalKey
+      };
+    }
+    function snapshotTodayPlan(results) {
+      const todayStr = toLocalISO(new Date());
+      window.planSnapshots = window.planSnapshots || {};
+      window.planSnapshots[todayStr] = results
+        .filter(item => item.status === 'assigned' && item.date === todayStr)
+        .map(freezePlanItem);
+    }
+    function mergeHistoricalSnapshots(results) {
+      const todayStr = toLocalISO(new Date());
+      const historical = Object.entries(window.planSnapshots || {})
+        .filter(([date]) => date < todayStr)
+        .flatMap(([, items]) => (items || []).map(item => ({ ...item, status: item.status || 'assigned' })));
+      return [...historical, ...results];
+    }
     function pruneReservedCapacity(){
       const todayStr = toLocalISO(new Date());
       Object.keys(window.reservedCapacityByDate || {}).forEach(date => {
@@ -446,13 +502,12 @@
       if(!tasks||tasks.length===0) return [];
       const plan=[];
       const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-      const slotMap = buildSlotMap(slots);
       const today = new Date(); today.setHours(0,0,0,0);
       const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
       const calendar = [];
       for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
         const ds = toLocalISO(d);
-        const capacity = getCapacityForDate(ds, slotMap);
+        const capacity = getCapacityForDate(ds);
         const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
         const available = Math.max(0, capacity - reserved);
         if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
@@ -574,13 +629,17 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
       document.getElementById('exceptions').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
+      window.capacityVersions = Array.isArray(data.capacityVersions) ? data.capacityVersions.map(version => ({ validFrom: version.validFrom, slots: normalizeSlotsList(version.slots || []) })).filter(version => version.validFrom) : [];
+      window.planSnapshots = data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {};
+      window.taskDateOverrides = data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {};
+      window.completedTaskKeys = new Set(Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []);
       pruneArchivedTasks();
       pruneReservedCapacity();
       (data.tasks||[]).forEach(t=> {
@@ -588,7 +647,9 @@
         const rowId = `task-row-${++taskRowIndex}`;
         createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
       });
-      renderSlotGrid(data.slots || []);
+      const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
+      renderSlotGrid(currentSlots);
+      ensureCapacityVersion(getSlotsFromUI());
       (data.exceptions||[]).forEach(e=> {
         const rowId = `exception-row-${++taskRowIndex}`;
         createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
@@ -598,10 +659,12 @@
       currentMonthDate = new Date();
       currentMonthDate.setDate(1);
     }
-    function saveData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); alert('Daten gespeichert.'); }
+    function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); }
+    function saveData(){ persistData(); alert('Daten gespeichert.'); }
     function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
+    function loadSavedDataOnStart(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved) return false; try { fillFormData(JSON.parse(saved)); return true; } catch(e) { return false; } }
     function exportData(){ const blob = new Blob([JSON.stringify(getFormData(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
-    function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
+    function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
     function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
     function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
 
@@ -611,6 +674,8 @@
     window.completedTaskKeys = window.completedTaskKeys || new Set();
     window.archivedTasks = [];
     window.reservedCapacityByDate = {};
+    window.capacityVersions = [];
+    window.planSnapshots = {};
 
     function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
     function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
@@ -719,13 +784,15 @@
       const exceptions = getExceptionsFromUI();
       pruneReservedCapacity();
       validateSlotRows();
-      window.slotMap = buildSlotMap(slots);
+      ensureCapacityVersion(slots);
       window.exceptions = exceptions;
       const overrides = window.taskDateOverrides || {};
-      const results = schedule(tasks, slots, exceptions).map((item,index)=>{
+      const scheduledResults = schedule(tasks, slots, exceptions).map((item,index)=>{
         const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
         return { ...item, id: `plan-${index}`, __originalKey: originalKey, date: overrides[originalKey] || item.date };
       });
+      snapshotTodayPlan(scheduledResults);
+      const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
       window.plan = results; window.tasks = tasks;
       if (archiveCompletedTasks(tasks, results)) {
         renderMonthView();
@@ -792,7 +859,7 @@
           dayCell.appendChild(header);
           const tasksForDay = dayPlans[dateStr]||[];
           const deadlineForDay = deadlineTasks[dateStr]||[];
-          const capacity = getCapacityForDate(dateStr, window.slotMap);
+          const capacity = getCapacityForDate(dateStr);
           const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[dateStr]) || 0);
           const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
           const displayedUsed = used + reserved;
@@ -859,13 +926,15 @@
 
     document.addEventListener('input', e => {
       renderMonthView();
+      persistData();
     });
     document.addEventListener('change', e => {
       const hoursInput = e.target.closest('.input-hours');
       if (hoursInput) sanitizeHourInput(hoursInput);
       renderMonthView();
+      persistData();
     });
-    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView();
+    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); if(!loadSavedDataOnStart()) renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView(); persistData();
       const calendarContainer = document.getElementById('month-calendar');
       if (calendarContainer){
         calendarContainer.addEventListener('click', e => {
@@ -889,6 +958,7 @@
           if (taskElement.classList.contains('task-done')) window.completedTaskKeys.add(originalKey);
           else window.completedTaskKeys.delete(originalKey);
           renderMonthView();
+          persistData();
         });
         calendarContainer.addEventListener('dragstart', e => {
           const taskElement = e.target.closest('.calendar-task');
@@ -924,13 +994,12 @@
         window.taskDateOverrides[item.__originalKey] = newDate;
       }
       renderMonthView();
+      persistData();
     }
 
     // simple auto-save
     function enableAutoSave(){ document.addEventListener('change', ()=>{
-      localStorage.setItem('lernplan_autosave_tasks', JSON.stringify([...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, hours: r.querySelector('.t-hrs').value, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value }))));
-      localStorage.setItem('lernplan_autosave_slots', JSON.stringify([...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: r.querySelector('.s-hrs').value }))));
-      localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
+      persistData();
     }); }
     enableAutoSave();
 
