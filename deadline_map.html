@@ -520,10 +520,17 @@
     }
 
     // scheduling algorithm (kept simple)
-    function schedule(tasks, slots, exceptions){
-      if(!tasks||tasks.length===0) return [];
-      const plan=[];
+    function schedule(tasks, slots, exceptions, lockedItems = []){
+      const plan=(lockedItems || []).map(item => ({ ...item, status: item.status || 'assigned', locked: true }));
+      if(!tasks||tasks.length===0) return plan;
       const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+      const lockedByDate = {};
+      const lockedByTask = {};
+      plan.forEach(item => {
+        if (item.status !== 'assigned') return;
+        lockedByDate[item.date] = (lockedByDate[item.date] || 0) + Number(item.minutes || 0);
+        lockedByTask[getTaskArchiveKey(item)] = (lockedByTask[getTaskArchiveKey(item)] || 0) + Number(item.minutes || 0);
+      });
       const today = new Date(); today.setHours(0,0,0,0);
       const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
       const calendar = [];
@@ -531,15 +538,15 @@
         const ds = toLocalISO(d);
         const capacity = getCapacityForDate(ds);
         const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
-        const available = Math.max(0, capacity - reserved);
+        const available = Math.max(0, capacity - reserved - (lockedByDate[ds] || 0));
         if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
       }
       const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
       sorted.forEach(task=>{
-        let need = Number(task.minutes||task.hours||0);
-        if (!task.minutes && task.hours) need = Number(task.hours)*60;
-        if (!need) return;
         const taskKey = getTaskArchiveKey(task);
+        const totalNeed = task.minutes ? Number(task.minutes || 0) : Number(task.hours || 0) * 60;
+        let need = Math.max(0, totalNeed - (lockedByTask[taskKey] || 0));
+        if (!need) return;
         for(const day of calendar){ if(need<=0) break; if(day.remaining<=0) continue; if(new Date(day.date) >= new Date(task.deadline)) continue; const alloc = Math.min(need, day.remaining); plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); day.remaining-=alloc; need-=alloc; }
         if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey});
       });
@@ -810,9 +817,16 @@
       window.exceptions = exceptions;
       const overrides = window.taskDateOverrides || {};
       const schedulableTasks = applyCarryOverToTasks(tasks);
-      const scheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
+      const baseScheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
         const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
-        return { ...item, id: `plan-${index}`, __originalKey: originalKey, date: overrides[originalKey] || item.date };
+        return { ...item, id: `plan-${index}`, __originalKey: originalKey, originalDate: item.date };
+      });
+      const lockedMovedItems = baseScheduledResults
+        .filter(item => item.status === 'assigned' && overrides[item.__originalKey] && overrides[item.__originalKey] !== item.originalDate)
+        .map(item => ({ ...item, date: overrides[item.__originalKey], locked: true }));
+      const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
+        const originalKey = item.__originalKey || `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
+        return { ...item, id: `plan-${index}`, __originalKey: originalKey };
       });
       snapshotTodayPlan(scheduledResults);
       const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
