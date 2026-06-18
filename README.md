@@ -7,8 +7,7 @@ Deadline Map ist eine interaktive Web-App zur Lern- und Deadlineplanung. Nutzeri
 ## Funktionen
 
 - Aufgaben mit benoetigter Zeit, Deadline und Prioritaet erfassen
-- Kapazitaeten als Standard-Lernzeiten pro Wochentag pflegen
-- Ausnahmetage wie Urlaub, Krankheit oder Pruefungsphasen eintragen
+- Ausnahmetage wie Urlaub, Feiertage oder Krankheit eintragen
 - Automatische Verteilung der Aufgaben auf freie Tage
 - Live-Anzeige fuer Zeitmangel, geplante Stunden und freie Restkapazitaeten
 - Speichern, Laden, Export und Import der Planungsdaten im Browser
@@ -62,9 +61,9 @@ http://localhost:3000
 
 Die oeffentliche Version ist hier erreichbar:
 
-https://deadline-map.onrender.com/
+https://committoclock.github.io/Deadline-Map/
 
-Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen wie Render, Vercel oder Netlify reichen typischerweise diese Einstellungen:
+Das Repository ist fuer ein statisches Deployment vorbereitet. Fuer GitHub Pages kann nach einem Build der Inhalt aus `dist/` veroeffentlicht werden. Fuer Plattformen wie Vercel, Netlify oder Render reichen typischerweise diese Einstellungen:
 
 - Build command: `npm run build`
 - Publish directory: `dist`
@@ -91,7 +90,3 @@ Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen 
 ## Hinweise
 
 Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.
-
-Im Bereich `Kapazitaeten` werden die Standard-Slots fuer die Wochentage gepflegt. Aenderungen werden historisiert: Jeder geaenderte Slot-Stand wird mit einem `gueltig ab`-Datum gespeichert. Der Kalender nutzt fuer vergangene Tage die damals gueltige Kapazitaet und haelt geplante Lernzeit fuer vergangene Tage als Snapshot fest, damit spaetere Slot-Aenderungen alte Planungstage nicht ueberschreiben. Nicht erledigte Stunden aus vergangenen Snapshots werden als Restaufwand erkannt und in die zukuenftige Planung uebernommen.
-
-Manuell verschobene Lernbloecke werden als feste Belegung behandelt. Wenn dadurch am urspruenglichen Tag Kapazitaet frei wird, wird diese freie Zeit bei der naechsten Berechnung automatisch wieder mit offenen Aufgaben aufgefuellt.

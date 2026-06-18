@@ -519,7 +519,8 @@
       const targetDate = getMovedOverrideDate(value);
       if (!targetDate) return null;
       if (value && typeof value === 'object' && value.item) {
-        return { ...value.item, date: targetDate, __originalKey: originalKey, locked: true };
+        const originalDate = value.item.originalDate || value.item.date;
+        return { ...value.item, date: targetDate, originalDate, __originalKey: originalKey, locked: true };
       }
       const parts = String(originalKey).split('|');
       if (parts.length < 5) return null;
@@ -536,6 +537,7 @@
         status: 'assigned',
         importance,
         deadline,
+        originalDate,
         taskKey: task ? getTaskArchiveKey(task) : `${title}|${deadline}|${importance}|${minutes}`,
         __originalKey: originalKey,
         originalDate,
@@ -558,14 +560,25 @@
     function schedule(tasks, slots, exceptions, lockedItems = []){
       const plan=(lockedItems || []).map(item => ({ ...item, status: item.status || 'assigned', locked: true }));
       if(!tasks||tasks.length===0) return plan;
+      
       const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
       const lockedByDate = {};
       const lockedByTask = {};
+      const taskBlockedDays = {}; // Speichert Tage, von denen ein Task wegverschoben wurde
+
       plan.forEach(item => {
         if (item.status !== 'assigned') return;
         lockedByDate[item.date] = (lockedByDate[item.date] || 0) + Number(item.minutes || 0);
-        lockedByTask[getTaskArchiveKey(item)] = (lockedByTask[getTaskArchiveKey(item)] || 0) + Number(item.minutes || 0);
+        const taskKey = getTaskArchiveKey(item);
+        lockedByTask[taskKey] = (lockedByTask[taskKey] || 0) + Number(item.minutes || 0);
+        
+        // Wenn ein Item verschoben wurde (originalDate vorhanden), sperre den Ursprungstag für diesen Task
+        if (item.originalDate && item.originalDate !== item.date) {
+          if (!taskBlockedDays[taskKey]) taskBlockedDays[taskKey] = new Set();
+          taskBlockedDays[taskKey].add(item.originalDate);
+        }
       });
+      
       const today = new Date(); today.setHours(0,0,0,0);
       const planningStart = new Date(today); planningStart.setDate(planningStart.getDate() + 1);
       const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
@@ -583,7 +596,18 @@
         const totalNeed = task.minutes ? Number(task.minutes || 0) : Number(task.hours || 0) * 60;
         let need = Math.max(0, totalNeed - (lockedByTask[taskKey] || 0));
         if (!need) return;
-        for(const day of calendar){ if(need<=0) break; if(day.remaining<=0) continue; if(new Date(day.date) >= new Date(task.deadline)) continue; const alloc = Math.min(need, day.remaining); plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); day.remaining-=alloc; need-=alloc; }
+        for(const day of calendar){ 
+          if(need<=0) break; 
+          if(day.remaining<=0) continue; 
+          if(new Date(day.date) >= new Date(task.deadline)) continue;
+          // Überspringe Tage, von denen dieser Task manuell wegverschoben wurde
+          if(taskBlockedDays[taskKey] && taskBlockedDays[taskKey].has(day.date)) continue;
+
+          const alloc = Math.min(need, day.remaining); 
+          plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); 
+          day.remaining-=alloc; 
+          need-=alloc; 
+        }
         if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey});
       });
       return plan;
@@ -836,7 +860,7 @@
       tb.dataset.originalKey = task.__originalKey || '';
       if (isTaskDone(task)) tb.classList.add('task-done');
       tb.draggable = true;
-      tb.dataset.id = task.id;
+      tb.dataset.id = task.__originalKey; // Verwende den stabilen Key statt der flüchtigen Plan-ID
       tb.dataset.title = task.title;
       const badge = '!'.repeat(prio);
       tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${task.title}</span><span>${formatHoursValue(task.minutes/60)}h</span>`;
@@ -1050,14 +1074,17 @@
     });
 
     function moveTaskToDay(taskId, newDate){
-      const item = (window.plan||[]).find(p => p.id === taskId);
+      const item = (window.plan||[]).find(p => p.__originalKey === taskId);
       if (!item) return;
       if (new Date(newDate) > new Date(item.deadline)){
         alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
         return;
       }
       if (item.__originalKey){
-        window.taskDateOverrides[item.__originalKey] = { date: newDate, item: freezePlanItem(item) };
+        const frozen = freezePlanItem(item);
+        // Merke dir das ursprüngliche Datum, damit der Slot für diesen Task gesperrt bleibt
+        frozen.originalDate = item.originalDate || item.date;
+        window.taskDateOverrides[item.__originalKey] = { date: newDate, item: frozen };
       }
       renderMonthView();
       persistData();

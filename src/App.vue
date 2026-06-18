@@ -70,12 +70,12 @@
                 <h2>Aufgaben</h2>
               </div>
             </summary>
-            <div class="step-content">
+        <div class="step-content">
               <div class="section-actions">
-                <button @click="tasks.push({ title: '', hours: 0, deadline: '', importance: 1 })" class="btn-primary btn-sm">+ Aufgabe</button>
+                <button @click="tasks.push({ _id: Date.now(), title: '', hours: 0, deadline: '', importance: 1 })" class="btn-primary btn-sm">+ Aufgabe</button>
               </div>
               <div v-if="tasks.length" class="space-y-3">
-                <div v-for="(task, idx) in tasks" :key="idx" class="form-card task-form">
+                <div v-for="(task, idx) in tasks" :key="task._id || idx" class="form-card task-form">
                   <label class="field field-wide">
                     <span>Titel</span>
                     <input v-model="task.title" placeholder="z.B. Mathe Kapitel 4" class="input-field" />
@@ -108,10 +108,10 @@
             </summary>
             <div class="step-content">
               <div class="section-actions">
-                <button @click="slots.push({ day: 'Montag', hours: 0 })" class="btn-primary btn-sm">+ Slot</button>
+                <button @click="slots.push({ _id: Date.now(), day: 'Montag', hours: 0 })" class="btn-primary btn-sm">+ Slot</button>
               </div>
               <div v-if="slots.length" class="slot-grid">
-                <div v-for="(slot, idx) in slots" :key="idx" class="form-card slot-form">
+                <div v-for="(slot, idx) in slots" :key="slot._id || idx" class="form-card slot-form">
                   <label class="field">
                     <span>Tag</span>
                     <select v-model="slot.day" class="input-field">
@@ -138,10 +138,10 @@
             </summary>
             <div class="step-content">
               <div class="section-actions">
-                <button @click="exceptions.push({ name: '', from: '', to: '' })" class="btn-primary btn-sm">+ Ausnahme</button>
+                <button @click="exceptions.push({ _id: Date.now(), name: '', from: '', to: '' })" class="btn-primary btn-sm">+ Ausnahme</button>
               </div>
               <div v-if="exceptions.length" class="space-y-3">
-                <div v-for="(exc, idx) in exceptions" :key="idx" class="form-card exception-form">
+                <div v-for="(exc, idx) in exceptions" :key="exc._id || idx" class="form-card exception-form">
                   <label class="field field-wide">
                     <span>Grund</span>
                     <input v-model="exc.name" placeholder="z.B. Urlaub" class="input-field" />
@@ -175,7 +175,7 @@
                 <button @click="addOverride" class="btn-primary btn-sm">+ KW</button>
               </div>
               <div v-if="overrides.length" class="space-y-4">
-                <div v-for="(override, idx) in overrides" :key="idx" class="override-card">
+                <div v-for="(override, idx) in overrides" :key="override._id || idx" class="override-card">
                   <div class="override-head">
                     <label class="field">
                       <span>Jahr</span>
@@ -445,6 +445,15 @@ const saveData = () => {
   alert('Daten gespeichert!')
 }
 
+const assignUniqueIds = (arr) => {
+  if (Array.isArray(arr)) {
+    arr.forEach(item => {
+      if (!item._id) {
+        item._id = Date.now() + Math.random(); // Ensure uniqueness even if Date.now() is the same
+      }
+    });
+  }
+};
 const loadData = () => {
   const saved = localStorage.getItem('lernplan_data')
   if (saved) {
@@ -452,6 +461,10 @@ const loadData = () => {
     tasks.value = data.tasks || []
     slots.value = data.slots || []
     exceptions.value = data.exceptions || []
+    assignUniqueIds(tasks.value);
+    assignUniqueIds(slots.value);
+    assignUniqueIds(exceptions.value);
+    assignUniqueIds(overrides.value);
     overrides.value = data.overrides || []
     alert('Daten geladen!')
   } else {
@@ -493,6 +506,10 @@ const handleImport = (e) => {
       tasks.value = data.tasks || []
       slots.value = data.slots || []
       exceptions.value = data.exceptions || []
+      assignUniqueIds(tasks.value);
+      assignUniqueIds(slots.value);
+      assignUniqueIds(exceptions.value);
+      assignUniqueIds(overrides.value);
       overrides.value = data.overrides || []
       alert('Daten importiert!')
     } catch (error) {
@@ -524,6 +541,7 @@ const addOverride = () => {
   weekDays.forEach(day => { slotsObj[day] = 0 })
 
   overrides.value.push({
+    _id: Date.now(),
     year: currentYear,
     week: currentWeek,
     slots: slotsObj
@@ -539,6 +557,10 @@ onMounted(() => {
       tasks.value = data.tasks || []
       slots.value = data.slots || []
       exceptions.value = data.exceptions || []
+      assignUniqueIds(tasks.value);
+      assignUniqueIds(slots.value);
+      assignUniqueIds(exceptions.value);
+      assignUniqueIds(overrides.value);
       overrides.value = data.overrides || []
     }
   }
