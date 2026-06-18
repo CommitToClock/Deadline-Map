@@ -1,1114 +1,1035 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lernplan & Kapazitäts-Check</title>
-  <style>
-    :root {
-      --bg: #f8fafc;           /* Sehr helles, modernes Grau-Blau für den Hintergrund */
-      --card: #ffffff;         /* Reines Weiß für die Boxen und Kalendertage */
-      --surface: #f8fafc;
-      --surface-strong: #ffffff;
-      --text: #0f172a;         /* Dunkles Schiefergrau für perfekte Lesbarkeit */
-      --text-muted: #475569;   /* besserer Kontrast für unterstützende Labels */
-      --text-soft: #64748b;    /* dezente, aber noch lesbare Hilfstexte */
-      --accent: #2563eb;       /* Ein edles, klares Blau für primäre Buttons/Elemente */
-      --primary: #2563eb;
-      --secondary: #1d4ed8;
-      --success: #16a34a;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --today-bg: #f5d0fe;     /* Klarer Violett-Akzent für den heutigen Tag */
-      --border: #e2e8f0;
-      --focus: #3b82f6;
-      --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.08);
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lernplan & Kapazitäts-Check</title>
+<style>
+:root {
+--bg: #f8fafc;           /* Sehr helles, modernes Grau-Blau für den Hintergrund */
+--card: #ffffff;         /* Reines Weiß für die Boxen und Kalendertage */
+--surface: #f8fafc;
+--surface-strong: #ffffff;
+--text: #0f172a;         /* Dunkles Schiefergrau für perfekte Lesbarkeit */
+--text-muted: #475569;   /* besserer Kontrast für unterstützende Labels */
+--text-soft: #64748b;    /* dezente, aber noch lesbare Hilfstexte */
+--accent: #2563eb;       /* Ein edles, klares Blau für primäre Buttons/Elemente */
+--primary: #2563eb;
+--secondary: #1d4ed8;
+--success: #16a34a;
+--warning: #f59e0b;
+--danger: #ef4444;
+--today-bg: #f5d0fe;     /* Klarer Violett-Akzent für den heutigen Tag */
+--border: #e2e8f0;
+--focus: #3b82f6;
+--shadow-sm: 0 1px 2px rgb(15 23 42 / 0.08);
 
-      --heat-none: #ffffff;    /* Keine Auslastung (Weiß) */
-      --heat-low: #ecfdf5;     /* Niedrige Auslastung (Sehr softes Pastellgrün) */
-      --heat-medium: #fef3c7;  /* Mittlere Auslastung (Softes Pastellgelb) */
-      --heat-high: #ffedd5;    /* Hohe Auslastung (Softes Pastellorange) */
-      --heat-over: #fef2f2;    /* Überlastet / Ausnahme (Softes Pastellrot) */
-    }
-    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:0.65rem auto;max-width:1200px;padding:0 0.75rem;background:var(--bg);color:var(--text)}
-    h1{font-size:1.35rem;font-weight:800;margin-bottom:0.6rem;letter-spacing:-0.03em;}
-    h3{font-size:1rem;font-weight:700;margin-bottom:0.35rem;}
-    #month-title{font-size:0.95rem;font-weight:700;color:var(--text);}
-    section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:0.85rem;box-shadow:var(--shadow-sm);padding:0.85rem;margin-bottom:0.6rem}
+--heat-none: #ffffff;    /* Keine Auslastung (Weiß) */
+--heat-low: #ecfdf5;     /* Niedrige Auslastung (Sehr softes Pastellgrün) */
+--heat-medium: #fef3c7;  /* Mittlere Auslastung (Softes Pastellgelb) */
+--heat-high: #ffedd5;    /* Hohe Auslastung (Softes Pastellorange) */
+--heat-over: #fef2f2;    /* Überlastet / Ausnahme (Softes Pastellrot) */
+}
+body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:0.65rem auto;max-width:1200px;padding:0 0.75rem;background:var(--bg);color:var(--text)}
+h1{font-size:1.35rem;font-weight:800;margin-bottom:0.6rem;letter-spacing:-0.03em;}
+h3{font-size:1rem;font-weight:700;margin-bottom:0.35rem;}
+#month-title{font-size:0.95rem;font-weight:700;color:var(--text);}
+section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:0.85rem;box-shadow:var(--shadow-sm);padding:0.85rem;margin-bottom:0.6rem}
+    #month-calendar{display:grid;grid-template-columns:42px repeat(7,1fr);gap:0;grid-auto-rows:minmax(46px,auto);}
+    .weekday-label{font-weight:700;text-align:center;color:var(--text-muted);padding:0.08rem 0;letter-spacing:0.08em;text-transform:uppercase;background:var(--card);border:none;border-radius:0;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem;height:1rem;display:flex;align-items:center;justify-content:center}
     #month-calendar{display:grid;grid-template-columns:42px repeat(7,1fr);grid-template-rows:18px;gap:0;grid-auto-rows:minmax(46px,auto);}
     .weekday-label{font-weight:700;text-align:center;color:var(--text-muted);padding:0;letter-spacing:0.08em;text-transform:uppercase;background:var(--card);border:none;border-radius:0;box-shadow:none;font-size:0.68rem;line-height:1;min-height:0;height:18px;display:flex;align-items:center;justify-content:center}
-    .weekday-label:first-child{border-left:0}
-    .week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--card);border:none;border-radius:0;padding:0.2rem 0.3rem;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem}
+.weekday-label:first-child{border-left:0}
+.week-number{font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--card);border:none;border-radius:0;padding:0.2rem 0.3rem;box-shadow:none;font-size:0.68rem;line-height:1.1;min-height:1rem}
     #month-calendar > .week-number:first-child{padding:0;min-height:0;height:18px;}
-    .day.empty{background:transparent;border:none}
-    .day-cell{background:var(--card);padding:6px;border-radius:12px;border:1px solid var(--border);min-height:62px;display:flex;flex-direction:column;gap:4px;line-height:1.2}
-    .day-cell.today{outline:3px solid #c026d3;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.85),0 0 0 2px rgba(192,38,211,0.18);}
-    .day-header{display:flex;align-items:center;justify-content:space-between;gap:0.4rem;}
-    .day-number{font-weight:700;font-size:0.88rem;color:var(--text);line-height:1.1}
-    .capacity-info{font-size:0.72rem;font-weight:700;line-height:1.1;white-space:nowrap;color:var(--text-muted);}
-    .day-cell.free-time{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
-    .day-cell.partial-time{background:#fef3c7;color:#92400e;border-color:#fbbf24}
-    .day-cell.util-low{background:#ecfdf5;border-color:#bbf7d0}
-    .day-cell.util-medium{background:#fef3c7;border-color:#fbbf24}
-    .day-cell.util-full{background:#ffedd5;border-color:#fb923c}
-    .day-cell.util-over,
-    .day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
-    .day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
-    .day-cell.exception-day .day-number{color:#1e3a8a}
-    .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
-    .task-block{margin-top:6px;padding:6px 8px;border-radius:16px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border);min-height:40px;line-height:1.2}
-    .day-cell .task-block{padding:4px 6px;border-radius:12px;font-size:0.74rem;min-height:auto;gap:4px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
-    .day-cell .task-block .task-title{font-size:0.82rem;color:var(--text)}
-    .day-cell .task-block span:last-child{font-size:0.72rem;white-space:nowrap;}
-    .day-cell .deadline-banner{font-size:0.72rem;padding:5px 7px;line-height:1.2;display:inline-flex;align-items:center;gap:0.35rem;}
-    .day-cell .deadline-banner::before{content:'🎯';display:inline-block;font-size:0.85rem;line-height:1;}
-    .task-priority-pill{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:0 7px;height:22px;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.01em;}
-    .day-cell .task-block.priority-1{background:#2563eb;border-color:#1d4ed8;color:#fff;box-shadow:0 1px 2px rgba(59,130,246,0.18);}
-    .day-cell .task-block.priority-1 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
-    .day-cell .task-block.priority-1 .task-title{color:#fff}
-    .day-cell .task-block.priority-2{background:#2563eb;border-color:#1d4ed8;color:#fff;}
-    .day-cell .task-block.priority-2 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
-    .day-cell .task-block.priority-2 .task-title{color:#fff;}
-    .day-cell .task-block.priority-3{background:#1d4ed8;border-color:#1e40af;color:#fff;}
-    .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);}
-    .day-cell .task-block.priority-3 .task-title{color:#fff}
-    .task-title{font-weight:600;flex:1}
-    .deadline-banner{margin-top:8px;padding:10px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:1px solid var(--accent);}
-    .progress-bar{height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative}
-    .progress-fill{height:100%;width:0%;transition:width .3s ease}
-    .progress-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
-    .progress-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
-    .progress-fill.full{background:linear-gradient(90deg,#22c55e,#4ade80)}
-    .priority-1{background:#eff6ff;color:#1d4ed8}
-    .priority-2{background:#dbeafe;color:#1d4ed8}
-    .priority-3{background:#93c5fd;color:#1e3a8a;font-weight:700}
-    .prio-container button{flex:1 1 0;min-width:0;border:none;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:0.85rem;font-weight:700;padding:0.35rem 0.6rem;font-size:0.78rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;line-height:1.15;}
-    .prio-container button.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 8px 14px rgba(37,99,235,0.16)}
-    .prio-container button:hover{background:#e2e8f0}
-    .status-pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700;letter-spacing:.02em}
-    .status-assigned{background:#dbf4ff;color:#0369a1}
-    .status-overdue{background:#fee2e2;color:#b91c1c}
-    .status-unassigned{background:#f8fafc;color:#475569}
-    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
-    .bottom-panels{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(180px,0.8fr);gap:8px;margin-top:0.45rem;align-items:flex-start}
-    .bottom-panels section:nth-child(3){grid-column:1/-1;}
-    section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:0.85rem;box-shadow:var(--shadow-sm);padding:12px;margin-bottom:0.6rem}
-    .tab-bar{display:flex;align-items:center;gap:0.5rem;margin:0.8rem 0 0.6rem;padding:0 0.15rem;}
-    .tabs{display:flex;gap:0.25rem;}
-    .tab-button{display:inline-flex;align-items:center;gap:0.35rem;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:0.4rem 0.85rem;font-size:0.9rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;}
-    .tab-button.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,0.18);}
-    #tab-add{margin-left:auto;}
-    .tab-panels .tab-content{display:none;}
-    .tab-panels .tab-content.active{display:block;}
-    .panel-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.45rem;}
-    .panel-header h3{margin:0;font-size:1rem;}
-    .btn-compact{padding:0.2rem 0.45rem;font-size:0.75rem;}
-    .toolbar .toggle-btn{background:var(--accent);color:#fff;border:none}
-    .month-nav{padding:0.45rem 0.7rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);justify-content:center}
-    .month-nav button{min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;min-height:20px;padding:0.25rem 0.45rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease;font-size:0.82rem;line-height:1.2}
-    .bottom-panels .btn{padding:0.25rem 0.45rem;font-size:0.78rem;min-height:18px;}
-    .btn:hover{background:#1d4ed8}
-    button:disabled, .btn:disabled, .btn-danger:disabled{background:#e2e8f0;color:#64748b;border-color:#cbd5e1;cursor:not-allowed;}
-    .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;font-size:0.85rem}
-    .button-tooltip{flex:1 1 240px;min-width:220px;width:auto;padding:0.55rem 0.9rem;border-radius:0.85rem;background:linear-gradient(180deg,#eff6ff,#dbeafe);color:#0f172a;font-size:0.88rem;border:1px solid #93c5fd;box-shadow:0 1px 6px rgba(15,23,42,0.12);font-weight:600;}
-    .toolbar .button-tooltip{margin-bottom:0;}
-    .dark .button-tooltip{background:linear-gradient(180deg,#374151,#111827);border-color:#4b5563;color:#f8fafc;box-shadow:0 1px 8px rgba(0,0,0,0.3);}
-    .button-tooltip::before{content:'ℹ️';margin-right:0.4rem;}
-    .btn-danger{background:transparent;color:#ef4444;border:none;font-weight:600;border-radius:0.55rem;padding:0.28rem 0.5rem;font-size:0.78rem;line-height:1.2;min-height:18px;transition:background .2s ease}
-    .btn-danger:hover{background:#fef2f2}
-    input[type="number"], input[type="date"], input[type="text"], select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.45rem 0.65rem;color:var(--text);box-shadow:inset 0 1px 2px rgb(15 23 42 / 0.04);box-sizing:border-box;min-width:0;font-size:0.85rem;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;}
-    input[type="number"]{width:auto;min-width:4rem;max-width:5.2rem;padding-right:1.2rem;}
-    input[type="date"]{width:auto;min-width:120px;max-width:150px;}
-    select{width:auto;min-width:105px;max-width:140px;}
-    .card {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 14px;
-      padding: 8px 14px;
-      margin-bottom: 8px;
-      border-radius: 12px;
-      width: 100%;
-      box-sizing: border-box;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      font-size: 0.86rem;
-    }
-    .card input[type="text"] {
-      width: 180px !important;
-      margin-right: 4px;
-      flex-shrink: 0;
-    }
-    .card input[type="number"] {
-      min-width: 6.8ch !important;
-      width: auto !important;
-      flex-shrink: 0;
-      text-align: center;
-    }
-    .card .stunden-label,
-    .card .deadline-label,
-    .card .prio-label {
-      flex-shrink: 0;
-      white-space: nowrap;
-      color: #1e293b;
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
-    .card input[type="date"] {
-      width: 120px !important;
-      flex-shrink: 0;
-    }
-    .card .progress-info {
-      font-size: 0.78rem;
-      white-space: nowrap;
-      color: #334155;
-    }
-    .card .prio-container {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-      font-size: 0.82rem;
-    }
-    .card .progress-container {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      width: 160px;
-      flex-shrink: 0;
-    }
-    .card .progress-bar-bg {
-      width: 100%;
-      height: 6px;
-      background-color: #e2e8f0;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .card .danger-badge {
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-    .card .delete-btn {
-      margin-left: 12px;
-      flex-shrink: 0;
-    }
-    .field-group{display:flex;align-items:center;gap:6px;min-width:0;}
-    .field-group label{font-size:0.82rem;font-weight:600;white-space:nowrap;color:#1e293b;}
-    #slots{display:grid;grid-template-columns:repeat(7,minmax(68px,1fr));gap:4px;align-items:stretch;}
-    .slot-row.card{display:flex;align-items:center;justify-content:center;gap:3px;margin-bottom:0;overflow:visible;padding:3px 4px;text-align:center;border:1px solid var(--border);border-radius:8px;background:#f8fafc;}
-    .slot-day-label{font-weight:800;font-size:0.66rem;letter-spacing:0.04em;text-transform:uppercase;color:#475569;}
-    .slot-input-label{display:none;}
-    .slot-input-wrap{display:flex;align-items:center;justify-content:center;gap:2px;}
-    .slot-row input[type="number"]{width:3rem !important;min-width:3rem !important;max-width:3rem;text-align:center;padding:0.28rem 0.2rem;}
-    .slot-unit{display:none;}
-    .form-error{display:none;margin:0 0 8px;padding:8px 10px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:0.84rem;font-weight:700;}
-    .form-error.visible{display:block;}
-    .exception-row.card{gap:10px;margin-bottom:4px;}
-    .exception-row input[type="text"]{width:220px !important;}
-    .exception-row .delete-btn{margin-left:auto;}
-    .calendar-day .red-line,
-    .calendar-day::before,
-    .calendar-task-line {
-      display: none !important;
-    }
-    .calendar-task {
-      border-top: none !important;
-      cursor: pointer;
-    }
-    .calendar-task.task-done {
-      background-color: #e2e8f0 !important;
-      color: #94a3b8 !important;
-      text-decoration: line-through;
-      opacity: 0.7;
-      border-color: #cbd5e1 !important;
-    }
-    .day-more-toggle{margin-top:6px;padding:4px 6px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.85);color:var(--text);font-size:0.75rem;font-weight:700;cursor:pointer;text-align:center;}
-    .day-more-toggle:hover{background:#eff6ff;border-color:#93c5fd;}
-    .day-task-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
-    .day-task-list.hidden{display:none;}
-    .day-task-list .task-block{margin-top:0;}
-    .archive-list{display:flex;flex-direction:column;gap:4px;}
-    .archive-row{display:grid;grid-template-columns:minmax(120px,max-content) minmax(0,1fr);gap:12px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:0.82rem;min-height:26px;}
-    .archive-title{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .archive-meta-group{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;flex-wrap:wrap;}
-    .archive-meta{font-size:0.76rem;color:var(--text-muted);white-space:nowrap;}
-    .archive-empty{padding:6px 8px;color:var(--text-muted);font-weight:700;font-size:0.84rem;}
-    .section-description{font-size:0.78rem;color:var(--text-muted);margin:0 0 0.45rem;line-height:1.25;font-weight:700;}
-    .info-icon{display:inline-flex;align-items:center;justify-content:center;margin-left:0.35rem;width:1.3rem;height:1.3rem;font-size:0.85rem;line-height:1;border-radius:999px;background:rgba(37,99,235,0.12);color:var(--text);cursor:help;}
-    .info-icon:hover{background:rgba(37,99,235,0.18);}
-    .import-info{display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center;margin:0.5rem 0 1rem;color:var(--text-soft);font-size:0.9rem;}
-    .import-hint{font-weight:600;}
-    .import-note{opacity:0.85;}
-    .dark {
-      --bg: #020617;
-      --card: #0f172a;
-      --surface: #111827;
-      --surface-strong: #111827;
-      --text: #e2e8f0;
-      --text-muted: #94a3b8;
-      --accent: #60a5fa;
-      --primary: #60a5fa;
-      --secondary: #2563eb;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #f97316;
-      --border: #334155;
-      --focus: #60a5fa;
-      --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.25);
-    }
-    .dark body{background:var(--bg);color:var(--text)}
-    .dark section.card-panel{background:var(--card);border-color:#1e293b;}
-    .dark .toolbar, .dark .month-nav{background:var(--card);}
-    .dark #month-title{color:var(--text);}
-    .dark .month-nav{border-color:#1e293b;}
-    .dark .btn{background:var(--primary);color:#fff;border-color:transparent;}
-    .dark .btn:hover{background:var(--secondary);}
-    .dark .btn-danger{background:rgba(249,115,22,0.14);color:#fee2e2;border-color:transparent;}
-    .dark .btn-danger:hover{background:rgba(249,115,22,0.2);}
-    .dark .day-cell{background:var(--surface);border-color:#1f2937;color:var(--text);}
-    .dark .day-cell.today{outline:3px solid #f0abfc;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.95),0 0 0 2px rgba(240,171,252,0.35);}
-    .dark .day-number{color:#cbd5e1}
-    .dark .weekday-label,.dark .week-number{color:#cbd5e1;background:var(--surface);border-color:#1f2937}
-    .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
-    .dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
-    .dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
-    .dark input, .dark select{background:var(--surface);color:var(--text);border-color:#334155}
-    .dark .task-block{background:var(--surface);color:var(--text)}
-    .dark .card{background:var(--surface);border-color:#1f2937;}
-    .dark .card.priority-1{background:rgba(96,165,250,0.12);border-color:#2563eb;}
-    .dark .card.priority-2{background:rgba(37,99,235,0.18);border-color:#2563eb;}
-    .dark .card.priority-3{background:rgba(37,99,235,0.24);border-color:#2563eb;}
-    .dark .card.deadline-warning{border-color:#f87171;background:rgba(248,113,113,0.08);box-shadow:0 0 0 1px rgba(248,113,113,0.14);}
-    .dark .slot-day-label,
-    .dark .slot-input-label,
-    .dark .slot-unit{color:#fff;}
-    .dark .form-error{border-color:#7f1d1d;background:rgba(127,29,29,0.35);color:#fff;}
+.day.empty{background:transparent;border:none}
+.day-cell{background:var(--card);padding:6px;border-radius:12px;border:1px solid var(--border);min-height:62px;display:flex;flex-direction:column;gap:4px;line-height:1.2}
+.day-cell.today{outline:3px solid #c026d3;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.85),0 0 0 2px rgba(192,38,211,0.18);}
+.day-header{display:flex;align-items:center;justify-content:space-between;gap:0.4rem;}
+.day-number{font-weight:700;font-size:0.88rem;color:var(--text);line-height:1.1}
+.capacity-info{font-size:0.72rem;font-weight:700;line-height:1.1;white-space:nowrap;color:var(--text-muted);}
+.day-cell.free-time{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
+.day-cell.partial-time{background:#fef3c7;color:#92400e;border-color:#fbbf24}
+.day-cell.util-low{background:#ecfdf5;border-color:#bbf7d0}
+.day-cell.util-medium{background:#fef3c7;border-color:#fbbf24}
+.day-cell.util-full{background:#ffedd5;border-color:#fb923c}
+.day-cell.util-over,
+.day-cell.overloaded{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
+.day-cell.exception-day .day-number{color:#1e3a8a}
+.day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
+.task-block{margin-top:6px;padding:6px 8px;border-radius:16px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border);min-height:40px;line-height:1.2}
+.day-cell .task-block{padding:4px 6px;border-radius:12px;font-size:0.74rem;min-height:auto;gap:4px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
+.day-cell .task-block .task-title{font-size:0.82rem;color:var(--text)}
+.day-cell .task-block span:last-child{font-size:0.72rem;white-space:nowrap;}
+.day-cell .deadline-banner{font-size:0.72rem;padding:5px 7px;line-height:1.2;display:inline-flex;align-items:center;gap:0.35rem;}
+.day-cell .deadline-banner::before{content:'🎯';display:inline-block;font-size:0.85rem;line-height:1;}
+.task-priority-pill{display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:0 7px;height:22px;border-radius:999px;font-size:0.72rem;font-weight:700;letter-spacing:0.01em;}
+.day-cell .task-block.priority-1{background:#2563eb;border-color:#1d4ed8;color:#fff;box-shadow:0 1px 2px rgba(59,130,246,0.18);}
+.day-cell .task-block.priority-1 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
+.day-cell .task-block.priority-1 .task-title{color:#fff}
+.day-cell .task-block.priority-2{background:#2563eb;border-color:#1d4ed8;color:#fff;}
+.day-cell .task-block.priority-2 .task-priority-pill{background:#93c5fd;color:#1d4ed8;}
+.day-cell .task-block.priority-2 .task-title{color:#fff;}
+.day-cell .task-block.priority-3{background:#1d4ed8;border-color:#1e40af;color:#fff;}
+.day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);}
+.day-cell .task-block.priority-3 .task-title{color:#fff}
+.task-title{font-weight:600;flex:1}
+.deadline-banner{margin-top:8px;padding:10px;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;border:1px solid var(--accent);}
+.progress-bar{height:10px;background:var(--border);border-radius:999px;overflow:hidden;position:relative}
+.progress-fill{height:100%;width:0%;transition:width .3s ease}
+.progress-fill.low{background:linear-gradient(90deg,#dc2626,#f87171)}
+.progress-fill.medium{background:linear-gradient(90deg,#f59e0b,#fb923c)}
+.progress-fill.full{background:linear-gradient(90deg,#22c55e,#4ade80)}
+.priority-1{background:#eff6ff;color:#1d4ed8}
+.priority-2{background:#dbeafe;color:#1d4ed8}
+.priority-3{background:#93c5fd;color:#1e3a8a;font-weight:700}
+.prio-container button{flex:1 1 0;min-width:0;border:none;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;border-radius:0.85rem;font-weight:700;padding:0.35rem 0.6rem;font-size:0.78rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;line-height:1.15;}
+.prio-container button.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 8px 14px rgba(37,99,235,0.16)}
+.prio-container button:hover{background:#e2e8f0}
+.status-pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:0.75rem;font-weight:700;letter-spacing:.02em}
+.status-assigned{background:#dbf4ff;color:#0369a1}
+.status-overdue{background:#fee2e2;color:#b91c1c}
+.status-unassigned{background:#f8fafc;color:#475569}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.bottom-panels{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(180px,0.8fr);gap:8px;margin-top:0.45rem;align-items:flex-start}
+.bottom-panels section:nth-child(3){grid-column:1/-1;}
+section.card-panel{background:var(--card);border:1px solid var(--border);border-radius:0.85rem;box-shadow:var(--shadow-sm);padding:12px;margin-bottom:0.6rem}
+.tab-bar{display:flex;align-items:center;gap:0.5rem;margin:0.8rem 0 0.6rem;padding:0 0.15rem;}
+.tabs{display:flex;gap:0.25rem;}
+.tab-button{display:inline-flex;align-items:center;gap:0.35rem;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:0.4rem 0.85rem;font-size:0.9rem;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease;}
+.tab-button.active{background:#2563eb;color:#fff;border-color:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,0.18);}
+#tab-add{margin-left:auto;}
+.tab-panels .tab-content{display:none;}
+.tab-panels .tab-content.active{display:block;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.45rem;}
+.panel-header h3{margin:0;font-size:1rem;}
+.btn-compact{padding:0.2rem 0.45rem;font-size:0.75rem;}
+.toolbar .toggle-btn{background:var(--accent);color:#fff;border:none}
+.month-nav{padding:0.45rem 0.7rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);justify-content:center}
+.month-nav button{min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;min-height:20px;padding:0.25rem 0.45rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease;font-size:0.82rem;line-height:1.2}
+.bottom-panels .btn{padding:0.25rem 0.45rem;font-size:0.78rem;min-height:18px;}
+.btn:hover{background:#1d4ed8}
+button:disabled, .btn:disabled, .btn-danger:disabled{background:#e2e8f0;color:#64748b;border-color:#cbd5e1;cursor:not-allowed;}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;font-size:0.85rem}
+.button-tooltip{flex:1 1 240px;min-width:220px;width:auto;padding:0.55rem 0.9rem;border-radius:0.85rem;background:linear-gradient(180deg,#eff6ff,#dbeafe);color:#0f172a;font-size:0.88rem;border:1px solid #93c5fd;box-shadow:0 1px 6px rgba(15,23,42,0.12);font-weight:600;}
+.toolbar .button-tooltip{margin-bottom:0;}
+.dark .button-tooltip{background:linear-gradient(180deg,#374151,#111827);border-color:#4b5563;color:#f8fafc;box-shadow:0 1px 8px rgba(0,0,0,0.3);}
+.button-tooltip::before{content:'ℹ️';margin-right:0.4rem;}
+.btn-danger{background:transparent;color:#ef4444;border:none;font-weight:600;border-radius:0.55rem;padding:0.28rem 0.5rem;font-size:0.78rem;line-height:1.2;min-height:18px;transition:background .2s ease}
+.btn-danger:hover{background:#fef2f2}
+input[type="number"], input[type="date"], input[type="text"], select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.45rem 0.65rem;color:var(--text);box-shadow:inset 0 1px 2px rgb(15 23 42 / 0.04);box-sizing:border-box;min-width:0;font-size:0.85rem;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;}
+input[type="number"]{width:auto;min-width:4rem;max-width:5.2rem;padding-right:1.2rem;}
+input[type="date"]{width:auto;min-width:120px;max-width:150px;}
+select{width:auto;min-width:105px;max-width:140px;}
+.card {
+display: flex;
+align-items: center;
+justify-content: flex-start;
+gap: 14px;
+padding: 8px 14px;
+margin-bottom: 8px;
+border-radius: 12px;
+width: 100%;
+box-sizing: border-box;
+flex-wrap: nowrap;
+overflow-x: auto;
+font-size: 0.86rem;
+}
+.card input[type="text"] {
+width: 180px !important;
+margin-right: 4px;
+flex-shrink: 0;
+}
+.card input[type="number"] {
+min-width: 6.8ch !important;
+width: auto !important;
+flex-shrink: 0;
+text-align: center;
+}
+.card .stunden-label,
+.card .deadline-label,
+.card .prio-label {
+flex-shrink: 0;
+white-space: nowrap;
+color: #1e293b;
+font-size: 0.82rem;
+font-weight: 600;
+}
+.card input[type="date"] {
+width: 120px !important;
+flex-shrink: 0;
+}
+.card .progress-info {
+font-size: 0.78rem;
+white-space: nowrap;
+color: #334155;
+}
+.card .prio-container {
+display: flex;
+align-items: center;
+gap: 6px;
+flex-shrink: 0;
+font-size: 0.82rem;
+}
+.card .progress-container {
+display: flex;
+flex-direction: column;
+gap: 2px;
+width: 160px;
+flex-shrink: 0;
+}
+.card .progress-bar-bg {
+width: 100%;
+height: 6px;
+background-color: #e2e8f0;
+border-radius: 4px;
+overflow: hidden;
+}
+.card .danger-badge {
+flex-shrink: 0;
+white-space: nowrap;
+}
+.card .delete-btn {
+margin-left: 12px;
+flex-shrink: 0;
+}
+.field-group{display:flex;align-items:center;gap:6px;min-width:0;}
+.field-group label{font-size:0.82rem;font-weight:600;white-space:nowrap;color:#1e293b;}
+#slots{display:grid;grid-template-columns:repeat(7,minmax(68px,1fr));gap:4px;align-items:stretch;}
+.slot-row.card{display:flex;align-items:center;justify-content:center;gap:3px;margin-bottom:0;overflow:visible;padding:3px 4px;text-align:center;border:1px solid var(--border);border-radius:8px;background:#f8fafc;}
+.slot-day-label{font-weight:800;font-size:0.66rem;letter-spacing:0.04em;text-transform:uppercase;color:#475569;}
+.slot-input-label{display:none;}
+.slot-input-wrap{display:flex;align-items:center;justify-content:center;gap:2px;}
+.slot-row input[type="number"]{width:3rem !important;min-width:3rem !important;max-width:3rem;text-align:center;padding:0.28rem 0.2rem;}
+.slot-unit{display:none;}
+.form-error{display:none;margin:0 0 8px;padding:8px 10px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:0.84rem;font-weight:700;}
+.form-error.visible{display:block;}
+.exception-row.card{gap:10px;margin-bottom:4px;}
+.exception-row input[type="text"]{width:220px !important;}
+.exception-row .delete-btn{margin-left:auto;}
+.calendar-day .red-line,
+.calendar-day::before,
+.calendar-task-line {
+display: none !important;
+}
+.calendar-task {
+border-top: none !important;
+cursor: pointer;
+}
+.calendar-task.task-done {
+background-color: #e2e8f0 !important;
+color: #94a3b8 !important;
+text-decoration: line-through;
+opacity: 0.7;
+border-color: #cbd5e1 !important;
+}
+.day-more-toggle{margin-top:6px;padding:4px 6px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,0.85);color:var(--text);font-size:0.75rem;font-weight:700;cursor:pointer;text-align:center;}
+.day-more-toggle:hover{background:#eff6ff;border-color:#93c5fd;}
+.day-task-list{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+.day-task-list.hidden{display:none;}
+.day-task-list .task-block{margin-top:0;}
+.archive-list{display:flex;flex-direction:column;gap:4px;}
+.archive-row{display:grid;grid-template-columns:minmax(120px,max-content) minmax(0,1fr);gap:12px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:0.82rem;min-height:26px;}
+.archive-title{font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.archive-meta-group{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;flex-wrap:wrap;}
+.archive-meta{font-size:0.76rem;color:var(--text-muted);white-space:nowrap;}
+.archive-empty{padding:6px 8px;color:var(--text-muted);font-weight:700;font-size:0.84rem;}
+.section-description{font-size:0.78rem;color:var(--text-muted);margin:0 0 0.45rem;line-height:1.25;font-weight:700;}
+.info-icon{display:inline-flex;align-items:center;justify-content:center;margin-left:0.35rem;width:1.3rem;height:1.3rem;font-size:0.85rem;line-height:1;border-radius:999px;background:rgba(37,99,235,0.12);color:var(--text);cursor:help;}
+.info-icon:hover{background:rgba(37,99,235,0.18);}
+.import-info{display:flex;flex-wrap:wrap;gap:0.8rem;align-items:center;margin:0.5rem 0 1rem;color:var(--text-soft);font-size:0.9rem;}
+.import-hint{font-weight:600;}
+.import-note{opacity:0.85;}
+.dark {
+--bg: #020617;
+--card: #0f172a;
+--surface: #111827;
+--surface-strong: #111827;
+--text: #e2e8f0;
+--text-muted: #94a3b8;
+--accent: #60a5fa;
+--primary: #60a5fa;
+--secondary: #2563eb;
+--success: #22c55e;
+--warning: #f59e0b;
+--danger: #f97316;
+--border: #334155;
+--focus: #60a5fa;
+--shadow-sm: 0 1px 2px rgb(15 23 42 / 0.25);
+}
+.dark body{background:var(--bg);color:var(--text)}
+.dark section.card-panel{background:var(--card);border-color:#1e293b;}
+.dark .toolbar, .dark .month-nav{background:var(--card);}
+.dark #month-title{color:var(--text);}
+.dark .month-nav{border-color:#1e293b;}
+.dark .btn{background:var(--primary);color:#fff;border-color:transparent;}
+.dark .btn:hover{background:var(--secondary);}
+.dark .btn-danger{background:rgba(249,115,22,0.14);color:#fee2e2;border-color:transparent;}
+.dark .btn-danger:hover{background:rgba(249,115,22,0.2);}
+.dark .day-cell{background:var(--surface);border-color:#1f2937;color:var(--text);}
+.dark .day-cell.today{outline:3px solid #f0abfc;outline-offset:-3px;box-shadow:inset 0 0 0 1px rgba(15,23,42,0.95),0 0 0 2px rgba(240,171,252,0.35);}
+.dark .day-number{color:#cbd5e1}
+.dark .weekday-label,.dark .week-number{color:#cbd5e1;background:var(--surface);border-color:#1f2937}
+.dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
+.dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
+.dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
+.dark input, .dark select{background:var(--surface);color:var(--text);border-color:#334155}
+.dark .task-block{background:var(--surface);color:var(--text)}
+.dark .card{background:var(--surface);border-color:#1f2937;}
+.dark .card.priority-1{background:rgba(96,165,250,0.12);border-color:#2563eb;}
+.dark .card.priority-2{background:rgba(37,99,235,0.18);border-color:#2563eb;}
+.dark .card.priority-3{background:rgba(37,99,235,0.24);border-color:#2563eb;}
+.dark .card.deadline-warning{border-color:#f87171;background:rgba(248,113,113,0.08);box-shadow:0 0 0 1px rgba(248,113,113,0.14);}
+.dark .slot-day-label,
+.dark .slot-input-label,
+.dark .slot-unit{color:#fff;}
+.dark .form-error{border-color:#7f1d1d;background:rgba(127,29,29,0.35);color:#fff;}
 
-    .dark .field-group label{color:var(--text-muted);}
-    .dark .field-group input, .dark .field-group select{background:var(--surface);color:var(--text);border-color:#334155;}
-    .dark .prio-container button{background:var(--surface);color:#cbd5e1;border-color:#334155;}
-    .dark .prio-container button:hover{background:#1e293b;}
-    .dark .prio-container button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
-    .dark .task-priority-pill{background:rgba(96,165,250,0.2);color:#e0f2fe;}
-    .dark .day-cell .task-block.priority-1{background:#1d4ed8;border-color:#2563eb;color:#fff;}
-    .dark .day-cell .task-block.priority-1 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
-    .dark .day-cell .task-block.priority-1 .task-title{color:#fff;}
-    .dark .day-cell .task-block.priority-2{background:#1d4ed8;border-color:#2563eb;color:#fff;}
-    .dark .day-cell .task-block.priority-2 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
-    .dark .day-cell .task-block.priority-3{background:#1b2f6b;border-color:#2563eb;color:#fff;}
-    .dark .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
-    .dark .day-cell.free-time{background:rgba(16, 185, 129, 0.14);color:#bbf7d0;border-color:#10b981;}
-    .dark .day-cell.partial-time{background:rgba(245, 158, 11, 0.18);color:var(--text);border-color:#f59e0b;}
-    .dark .day-cell.overloaded{background:rgba(239, 68, 68, 0.18);color:var(--text);border-color:#ef4444;}
-    .dark .day-cell.exception-day{background:#1f2937;color:#c7d2fe;border:1px solid #475569;}
-    .dark .legend-item{background:var(--surface);border-color:#1f2937;color:var(--text);}
-    .dark .day-cell.util-low{background:rgba(16, 185, 129, 0.14);border-color:#10b981;}
-    .dark .day-cell.util-medium{background:rgba(245, 158, 11, 0.18);border-color:#f59e0b;}
-    .dark .day-cell.util-full{background:rgba(249, 115, 22, 0.2);border-color:#fb923c;}
-    .dark .day-cell.util-over{background:rgba(239, 68, 68, 0.18);border-color:#ef4444;}
-    .dark,
-    .dark * {
-      color:#fff !important;
-    }
-    .dark input::placeholder,
-    .dark textarea::placeholder {
-      color:#fff !important;
-      opacity:0.8;
-    }
+.dark .field-group label{color:var(--text-muted);}
+.dark .field-group input, .dark .field-group select{background:var(--surface);color:var(--text);border-color:#334155;}
+.dark .prio-container button{background:var(--surface);color:#cbd5e1;border-color:#334155;}
+.dark .prio-container button:hover{background:#1e293b;}
+.dark .prio-container button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.dark .task-priority-pill{background:rgba(96,165,250,0.2);color:#e0f2fe;}
+.dark .day-cell .task-block.priority-1{background:#1d4ed8;border-color:#2563eb;color:#fff;}
+.dark .day-cell .task-block.priority-1 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
+.dark .day-cell .task-block.priority-1 .task-title{color:#fff;}
+.dark .day-cell .task-block.priority-2{background:#1d4ed8;border-color:#2563eb;color:#fff;}
+.dark .day-cell .task-block.priority-2 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
+.dark .day-cell .task-block.priority-3{background:#1b2f6b;border-color:#2563eb;color:#fff;}
+.dark .day-cell .task-block.priority-3 .task-priority-pill{background:rgba(255,255,255,0.18);color:#fff;}
+.dark .day-cell.free-time{background:rgba(16, 185, 129, 0.14);color:#bbf7d0;border-color:#10b981;}
+.dark .day-cell.partial-time{background:rgba(245, 158, 11, 0.18);color:var(--text);border-color:#f59e0b;}
+.dark .day-cell.overloaded{background:rgba(239, 68, 68, 0.18);color:var(--text);border-color:#ef4444;}
+.dark .day-cell.exception-day{background:#1f2937;color:#c7d2fe;border:1px solid #475569;}
+.dark .legend-item{background:var(--surface);border-color:#1f2937;color:var(--text);}
+.dark .day-cell.util-low{background:rgba(16, 185, 129, 0.14);border-color:#10b981;}
+.dark .day-cell.util-medium{background:rgba(245, 158, 11, 0.18);border-color:#f59e0b;}
+.dark .day-cell.util-full{background:rgba(249, 115, 22, 0.2);border-color:#fb923c;}
+.dark .day-cell.util-over{background:rgba(239, 68, 68, 0.18);border-color:#ef4444;}
+.dark,
+.dark * {
+color:#fff !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+color:#fff !important;
+opacity:0.8;
+}
 
-    @media (max-width: 900px) {
-      body{margin:1rem auto;padding:0 0.85rem;}
-      section.card-panel{padding:0.9rem;}
-      .toolbar{justify-content:center;gap:8px;}
-      .toolbar > .button-tooltip{width:100%;}
-      .month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
-      .month-nav button{min-width:34px;}
-      .btn{width:100%;min-width:0;}
-      .legend{flex-direction:column;align-items:flex-start;}
-      #month-calendar{grid-template-columns:38px repeat(7, minmax(0,1fr));gap:6px;}
+@media (max-width: 900px) {
+body{margin:1rem auto;padding:0 0.85rem;}
+section.card-panel{padding:0.9rem;}
+.toolbar{justify-content:center;gap:8px;}
+.toolbar > .button-tooltip{width:100%;}
+.month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
+.month-nav button{min-width:34px;}
+.btn{width:100%;min-width:0;}
+.legend{flex-direction:column;align-items:flex-start;}
+#month-calendar{grid-template-columns:38px repeat(7, minmax(0,1fr));gap:6px;}
+      .weekday-label{padding:0.45rem 0;}
       .weekday-label{padding:0;height:18px;}
-      .week-number{padding:0.6rem;}
-      .day-cell{min-height:88px;}
-      .task-block{flex-direction:column;align-items:flex-start;}
-      #slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
-      .archive-row{grid-template-columns:1fr;gap:3px;}
-      .archive-meta-group{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;}
-    }
+.week-number{padding:0.6rem;}
+.day-cell{min-height:88px;}
+.task-block{flex-direction:column;align-items:flex-start;}
+#slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
+.archive-row{grid-template-columns:1fr;gap:3px;}
+.archive-meta-group{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;}
+}
 
-    @media (max-width: 600px) {
-      body{margin:0.85rem auto;padding:0 0.7rem;}
-      section.card-panel{padding:0.9rem;}
-      .toolbar, .month-nav{flex-direction:column;align-items:stretch;}
-      .month-nav{gap:0.6rem;padding:0.75rem 0.9rem;}
-      .month-nav strong{display:block;margin:0.4rem 0;}
-      .btn{width:100%;}
-      .month-nav button{min-width:0;}
-      #month-calendar{grid-template-columns:34px repeat(7, minmax(0,1fr));gap:5px;}
+@media (max-width: 600px) {
+body{margin:0.85rem auto;padding:0 0.7rem;}
+section.card-panel{padding:0.9rem;}
+.toolbar, .month-nav{flex-direction:column;align-items:stretch;}
+.month-nav{gap:0.6rem;padding:0.75rem 0.9rem;}
+.month-nav strong{display:block;margin:0.4rem 0;}
+.btn{width:100%;}
+.month-nav button{min-width:0;}
+#month-calendar{grid-template-columns:34px repeat(7, minmax(0,1fr));gap:5px;}
+      .weekday-label{font-size:0.72rem;padding:0.45rem 0;}
       .weekday-label{font-size:0.72rem;padding:0;height:18px;}
-      .week-number{padding:0.5rem;font-size:0.76rem;}
-      .day-cell{padding:8px;border-radius:12px;min-height:78px;}
-      .day-number{font-size:0.9rem;}
-      .legend{gap:0.5rem;font-size:0.85rem;}
-      .legend-item{padding:0.45rem 0.75rem;}
-      .task-block{padding:8px 10px;}
-      .toolbar > .btn{width:100%;}
-      #slots{grid-template-columns:repeat(2,minmax(0,1fr));}
-    }
-  </style>
+.week-number{padding:0.5rem;font-size:0.76rem;}
+.day-cell{padding:8px;border-radius:12px;min-height:78px;}
+.day-number{font-size:0.9rem;}
+.legend{gap:0.5rem;font-size:0.85rem;}
+.legend-item{padding:0.45rem 0.75rem;}
+.task-block{padding:8px 10px;}
+.toolbar > .btn{width:100%;}
+#slots{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+</style>
 </head>
 <body>
-  <h1>Lernplan & Kapazitäts-Check</h1>
-  <div class="toolbar" id="main-toolbar">
-    <button id="save-data" class="btn"><span class="btn-icon">💾</span>Speichern</button>
-    <button id="load-data" class="btn"><span class="btn-icon">📂</span>Laden</button>
-    <button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
-    <button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
-    <button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
-    <div class="button-tooltip" id="toolbar-tooltip">Hover über einen Button für eine Kurzinfo.</div>
-    <input id="file-import" type="file" accept=".json,application/json" style="display:none">
-  </div>
-  <section class="card-panel">
-    <div class="toolbar month-nav">
-      <button id="prev-month" class="btn">«</button>
-      <strong id="month-title"></strong>
-      <button id="next-month" class="btn">»</button>
-    </div>
-    <div id="month-calendar"></div>
-  </section>
+<h1>Lernplan & Kapazitäts-Check</h1>
+<div class="toolbar" id="main-toolbar">
+<button id="save-data" class="btn"><span class="btn-icon">💾</span>Speichern</button>
+<button id="load-data" class="btn"><span class="btn-icon">📂</span>Laden</button>
+<button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
+<button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
+<button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
+<div class="button-tooltip" id="toolbar-tooltip">Hover über einen Button für eine Kurzinfo.</div>
+<input id="file-import" type="file" accept=".json,application/json" style="display:none">
+</div>
+<section class="card-panel">
+<div class="toolbar month-nav">
+<button id="prev-month" class="btn">«</button>
+<strong id="month-title"></strong>
+<button id="next-month" class="btn">»</button>
+</div>
+<div id="month-calendar"></div>
+</section>
 
-  <div class="tab-bar">
-    <div class="tabs">
-      <button type="button" class="tab-button active" data-tab="tasks">Aufgaben<span class="info-icon" title="Gib hier deine Aufgaben ein und plane dafür Stunden. Deadline und Priorität helfen bei der Verteilung.">ℹ️</span></button>
-      <button type="button" class="tab-button" data-tab="capacity">Kapazitaeten<span class="info-icon" title="Lege deine Standard-Lernzeiten pro Wochentag fest.">ℹ️</span></button>
-      <button type="button" class="tab-button" data-tab="exceptions">Ausnahmen<span class="info-icon" title="Eine Ausnahme blockiert Tage, an denen du nicht lernen kannst, z. B. Feiertage, Termine oder Urlaub.">ℹ️</span></button>
-      <button type="button" class="tab-button" data-tab="completed">Abgeschlossen<span class="info-icon" title="Hier landen Aufgaben, deren geplante Blöcke erledigt sind oder deren Deadline zurückliegt.">ℹ️</span></button>
-    </div>
-    <button id="tab-add" class="btn btn-compact">+ Aufgabe hinzufügen</button>
-  </div>
-  <div class="tab-panels">
-    <section class="card-panel tab-content active" id="tasks-panel" data-tab="tasks">
-      <div id="tasks"></div>
-    </section>
-    <section class="card-panel tab-content" id="capacity-panel" data-tab="capacity">
-      <p class="section-description">Standard-Lernzeit pro Wochentag in Stunden</p>
-      <div id="slots-error" class="form-error" role="alert"></div>
-      <div id="slots"></div>
-    </section>
-    <section class="card-panel tab-content" id="exceptions-panel" data-tab="exceptions">
-      <div id="exceptions"></div>
-    </section>
-    <section class="card-panel tab-content" id="completed-panel" data-tab="completed">
-      <div id="completed"></div>
-    </section>
-  </div>
+<div class="tab-bar">
+<div class="tabs">
+<button type="button" class="tab-button active" data-tab="tasks">Aufgaben<span class="info-icon" title="Gib hier deine Aufgaben ein und plane dafür Stunden. Deadline und Priorität helfen bei der Verteilung.">ℹ️</span></button>
+<button type="button" class="tab-button" data-tab="capacity">Kapazitaeten<span class="info-icon" title="Lege deine Standard-Lernzeiten pro Wochentag fest.">ℹ️</span></button>
+<button type="button" class="tab-button" data-tab="exceptions">Ausnahmen<span class="info-icon" title="Eine Ausnahme blockiert Tage, an denen du nicht lernen kannst, z. B. Feiertage, Termine oder Urlaub.">ℹ️</span></button>
+<button type="button" class="tab-button" data-tab="completed">Abgeschlossen<span class="info-icon" title="Hier landen Aufgaben, deren geplante Blöcke erledigt sind oder deren Deadline zurückliegt.">ℹ️</span></button>
+</div>
+<button id="tab-add" class="btn btn-compact">+ Aufgabe hinzufügen</button>
+</div>
+<div class="tab-panels">
+<section class="card-panel tab-content active" id="tasks-panel" data-tab="tasks">
+<div id="tasks"></div>
+</section>
+<section class="card-panel tab-content" id="capacity-panel" data-tab="capacity">
+<p class="section-description">Standard-Lernzeit pro Wochentag in Stunden</p>
+<div id="slots-error" class="form-error" role="alert"></div>
+<div id="slots"></div>
+</section>
+<section class="card-panel tab-content" id="exceptions-panel" data-tab="exceptions">
+<div id="exceptions"></div>
+</section>
+<section class="card-panel tab-content" id="completed-panel" data-tab="completed">
+<div id="completed"></div>
+</section>
+</div>
 
-  <script>
-    // helpers
-    const toLocalISO = d => new Date(d).toLocaleDateString('sv-SE');
-    const formatDateDE = ds => ds ? ds.split('-').reverse().join('.') : '';
-    const getTodayValue = () => {
-      const d = new Date();
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    function setMinDateForPickers(){ const minDate = getTodayValue(); document.querySelectorAll('.t-dl, .e-from, .e-to').forEach(input => input.min = minDate); }
-    function getWeekNumber(d) {
-      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-      return [d.getUTCFullYear(), weekNo];
-    }
-    function isException(dateStr) {
-      return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
-    }
-    function getCapacityForDate(dateStr) {
-      if (isException(dateStr)) return 0;
-      const date = new Date(dateStr);
-      const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
-      return buildSlotMap(getSlotsForDate(dateStr))[dayName] || 0;
-    }
+<script>
+// helpers
+const toLocalISO = d => new Date(d).toLocaleDateString('sv-SE');
+const formatDateDE = ds => ds ? ds.split('-').reverse().join('.') : '';
+const getTodayValue = () => {
+const d = new Date();
+const year = d.getFullYear();
+const month = String(d.getMonth() + 1).padStart(2, '0');
+const day = String(d.getDate()).padStart(2, '0');
+return `${year}-${month}-${day}`;
+};
+function setMinDateForPickers(){ const minDate = getTodayValue(); document.querySelectorAll('.t-dl, .e-from, .e-to').forEach(input => input.min = minDate); }
+function getWeekNumber(d) {
+d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+return [d.getUTCFullYear(), weekNo];
+}
+function isException(dateStr) {
+return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
+}
+function getCapacityForDate(dateStr) {
+if (isException(dateStr)) return 0;
+const date = new Date(dateStr);
+const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
+return buildSlotMap(getSlotsForDate(dateStr))[dayName] || 0;
+}
 
-    // small utilities
-    function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=(Number(s.hours)||0)*60); return m; }
-    function normalizeSlotsList(slots = []) {
-      const map = new Map((slots || []).map(slot => [slot.day, normalizeHoursValue(slot.hours || 0)]));
-      return weekdays.map(day => ({ day, hours: map.get(day) || 0 })).filter(slot => slot.hours > 0);
-    }
-    function slotsSignature(slots = []) {
-      return normalizeSlotsList(slots).map(slot => `${slot.day}:${slot.hours}`).join('|');
-    }
-    function getSlotsForDate(dateStr) {
-      const versions = [...(window.capacityVersions || [])]
-        .filter(version => version.validFrom && version.validFrom <= dateStr)
-        .sort((a, b) => b.validFrom.localeCompare(a.validFrom));
-      if (versions[0]) return normalizeSlotsList(versions[0].slots || []);
-      const firstVersion = [...(window.capacityVersions || [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom))[0];
-      return normalizeSlotsList(firstVersion?.slots || getSlotsFromUI());
-    }
-    function ensureCapacityVersion(slots) {
-      const todayStr = toLocalISO(new Date());
-      const normalized = normalizeSlotsList(slots);
-      window.capacityVersions = Array.isArray(window.capacityVersions) ? window.capacityVersions : [];
-      if (!window.capacityVersions.length) {
-        window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
-        return;
-      }
-      window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
-      const latest = window.capacityVersions[window.capacityVersions.length - 1];
-      if (slotsSignature(latest.slots) === slotsSignature(normalized)) return;
-      const todayVersion = window.capacityVersions.find(version => version.validFrom === todayStr);
-      if (todayVersion) todayVersion.slots = normalized;
-      else window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
-      window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
-    }
-    function freezePlanItem(item) {
-      return {
-        date: item.date,
-        title: item.title,
-        minutes: item.minutes,
-        status: item.status,
-        importance: item.importance,
-        deadline: item.deadline,
-        taskKey: item.taskKey,
-        __originalKey: item.__originalKey
-      };
-    }
-    function snapshotTodayPlan(results) {
-      const todayStr = toLocalISO(new Date());
-      window.planSnapshots = window.planSnapshots || {};
-      const currentItems = results
-        .filter(item => item.status === 'assigned' && item.date === todayStr)
-        .map(freezePlanItem);
-      const currentKeys = new Set(currentItems.map(item => item.__originalKey));
-      const preservedDoneItems = (window.planSnapshots[todayStr] || [])
-        .filter(item => window.completedTaskKeys.has(item.__originalKey) && !currentKeys.has(item.__originalKey));
-      window.planSnapshots[todayStr] = [...preservedDoneItems, ...currentItems];
-    }
-    function mergeHistoricalSnapshots(results) {
-      const todayStr = toLocalISO(new Date());
-      const historical = Object.entries(window.planSnapshots || {})
-        .filter(([date]) => date < todayStr)
-        .flatMap(([, items]) => (items || []).map(item => ({ ...item, status: item.status || 'assigned' })));
-      return [...historical, ...results];
-    }
-    function getCompletedMinutesByTaskKey() {
-      const totals = {};
-      Object.values(window.planSnapshots || {}).flat().forEach(item => {
-        if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return;
-        const key = getTaskArchiveKey(item);
-        totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
-      });
-      return totals;
-    }
-    function applyCarryOverToTasks(tasks) {
-      const completedByTask = getCompletedMinutesByTaskKey();
-      return tasks.map(task => {
-        const completedMinutes = completedByTask[getTaskArchiveKey(task)] || 0;
-        const remainingMinutes = Math.max(0, Number(task.minutes || 0) - completedMinutes);
-        return { ...task, minutes: remainingMinutes, originalMinutes: task.minutes, completedMinutes };
-      }).filter(task => task.minutes > 0);
-    }
-    function getMovedOverrideDate(value) {
-      return typeof value === 'string' ? value : value?.date;
-    }
-    function buildMovedItemFromOverride(originalKey, value, tasks) {
-      const targetDate = getMovedOverrideDate(value);
-      if (!targetDate) return null;
-      if (value && typeof value === 'object' && value.item) {
-        const originalDate = value.item.originalDate || value.item.date;
-        return { ...value.item, date: targetDate, originalDate, __originalKey: originalKey, locked: true };
-      }
-      const parts = String(originalKey).split('|');
-      if (parts.length < 5) return null;
-      const originalDate = parts.pop();
-      const minutes = Number(parts.pop() || 0);
-      const importance = parts.pop() || '1';
-      const deadline = parts.pop() || '';
-      const title = parts.join('|');
-      const task = (tasks || []).find(item => item.title === title && item.deadline === deadline && String(item.importance) === String(importance));
-      return {
-        date: targetDate,
-        title,
-        minutes,
-        status: 'assigned',
-        importance,
-        deadline,
-        originalDate,
-        taskKey: task ? getTaskArchiveKey(task) : `${title}|${deadline}|${importance}|${minutes}`,
-        __originalKey: originalKey,
-        originalDate,
-        locked: true
-      };
-    }
-    function getLockedMovedItems(tasks) {
-      return Object.entries(window.taskDateOverrides || {})
-        .map(([originalKey, value]) => buildMovedItemFromOverride(originalKey, value, tasks))
-        .filter(Boolean);
-    }
-    function pruneReservedCapacity(){
-      const todayStr = toLocalISO(new Date());
-      Object.keys(window.reservedCapacityByDate || {}).forEach(date => {
-        if (date < todayStr) delete window.reservedCapacityByDate[date];
-      });
-    }
+// small utilities
+function buildSlotMap(slots){ const m={}; (slots||[]).forEach(s=>m[s.day]=(Number(s.hours)||0)*60); return m; }
+function normalizeSlotsList(slots = []) {
+const map = new Map((slots || []).map(slot => [slot.day, normalizeHoursValue(slot.hours || 0)]));
+return weekdays.map(day => ({ day, hours: map.get(day) || 0 })).filter(slot => slot.hours > 0);
+}
+function slotsSignature(slots = []) {
+return normalizeSlotsList(slots).map(slot => `${slot.day}:${slot.hours}`).join('|');
+}
+function getSlotsForDate(dateStr) {
+const versions = [...(window.capacityVersions || [])]
+.filter(version => version.validFrom && version.validFrom <= dateStr)
+.sort((a, b) => b.validFrom.localeCompare(a.validFrom));
+if (versions[0]) return normalizeSlotsList(versions[0].slots || []);
+const firstVersion = [...(window.capacityVersions || [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom))[0];
+return normalizeSlotsList(firstVersion?.slots || getSlotsFromUI());
+}
+function ensureCapacityVersion(slots) {
+const todayStr = toLocalISO(new Date());
+const normalized = normalizeSlotsList(slots);
+window.capacityVersions = Array.isArray(window.capacityVersions) ? window.capacityVersions : [];
+if (!window.capacityVersions.length) {
+window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+return;
+}
+window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+const latest = window.capacityVersions[window.capacityVersions.length - 1];
+if (slotsSignature(latest.slots) === slotsSignature(normalized)) return;
+const todayVersion = window.capacityVersions.find(version => version.validFrom === todayStr);
+if (todayVersion) todayVersion.slots = normalized;
+else window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+}
+function freezePlanItem(item) {
+return {
+date: item.date,
+title: item.title,
+minutes: item.minutes,
+status: item.status,
+importance: item.importance,
+deadline: item.deadline,
+taskKey: item.taskKey,
+__originalKey: item.__originalKey
+};
+}
+function snapshotTodayPlan(results) {
+const todayStr = toLocalISO(new Date());
+window.planSnapshots = window.planSnapshots || {};
+const currentItems = results
+.filter(item => item.status === 'assigned' && item.date === todayStr)
+.map(freezePlanItem);
+const currentKeys = new Set(currentItems.map(item => item.__originalKey));
+const preservedDoneItems = (window.planSnapshots[todayStr] || [])
+.filter(item => window.completedTaskKeys.has(item.__originalKey) && !currentKeys.has(item.__originalKey));
+window.planSnapshots[todayStr] = [...preservedDoneItems, ...currentItems];
+}
+function mergeHistoricalSnapshots(results) {
+const todayStr = toLocalISO(new Date());
+const historical = Object.entries(window.planSnapshots || {})
+.filter(([date]) => date < todayStr)
+.flatMap(([, items]) => (items || []).map(item => ({ ...item, status: item.status || 'assigned' })));
+return [...historical, ...results];
+}
+function getCompletedMinutesByTaskKey() {
+const totals = {};
+Object.values(window.planSnapshots || {}).flat().forEach(item => {
+if (!item || item.status !== 'assigned' || !window.completedTaskKeys.has(item.__originalKey)) return;
+const key = getTaskArchiveKey(item);
+totals[key] = (totals[key] || 0) + Number(item.minutes || 0);
+});
+return totals;
+}
+function applyCarryOverToTasks(tasks) {
+const completedByTask = getCompletedMinutesByTaskKey();
+return tasks.map(task => {
+const completedMinutes = completedByTask[getTaskArchiveKey(task)] || 0;
+const remainingMinutes = Math.max(0, Number(task.minutes || 0) - completedMinutes);
+return { ...task, minutes: remainingMinutes, originalMinutes: task.minutes, completedMinutes };
+}).filter(task => task.minutes > 0);
+}
+function pruneReservedCapacity(){
+const todayStr = toLocalISO(new Date());
+Object.keys(window.reservedCapacityByDate || {}).forEach(date => {
+if (date < todayStr) delete window.reservedCapacityByDate[date];
+});
+}
 
-    // scheduling algorithm (kept simple)
-    function schedule(tasks, slots, exceptions, lockedItems = []){
-      const plan=(lockedItems || []).map(item => ({ ...item, status: item.status || 'assigned', locked: true }));
-      if(!tasks||tasks.length===0) return plan;
-      
-      const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-      const lockedByDate = {};
-      const lockedByTask = {};
-      const taskBlockedDays = {}; // Speichert Tage, von denen ein Task wegverschoben wurde
+// scheduling algorithm (kept simple)
+function schedule(tasks, slots, exceptions){
+if(!tasks||tasks.length===0) return [];
+const plan=[];
+const dayNames=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const today = new Date(); today.setHours(0,0,0,0);
+const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
+const calendar = [];
+for(let d=new Date(today); d<=maxDL; d.setDate(d.getDate()+1)){
+const ds = toLocalISO(d);
+const capacity = getCapacityForDate(ds);
+const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
+const available = Math.max(0, capacity - reserved);
+if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
+}
+const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+sorted.forEach(task=>{
+let need = Number(task.minutes||task.hours||0);
+if (!task.minutes && task.hours) need = Number(task.hours)*60;
+if (!need) return;
+const taskKey = getTaskArchiveKey(task);
+for(const day of calendar){ if(need<=0) break; if(day.remaining<=0) continue; if(new Date(day.date) >= new Date(task.deadline)) continue; const alloc = Math.min(need, day.remaining); plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); day.remaining-=alloc; need-=alloc; }
+if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey});
+});
+return plan;
+}
 
-      plan.forEach(item => {
-        if (item.status !== 'assigned') return;
-        lockedByDate[item.date] = (lockedByDate[item.date] || 0) + Number(item.minutes || 0);
-        const taskKey = getTaskArchiveKey(item);
-        lockedByTask[taskKey] = (lockedByTask[taskKey] || 0) + Number(item.minutes || 0);
-        
-        // Wenn ein Item verschoben wurde (originalDate vorhanden), sperre den Ursprungstag für diesen Task
-        if (item.originalDate && item.originalDate !== item.date) {
-          if (!taskBlockedDays[taskKey]) taskBlockedDays[taskKey] = new Set();
-          taskBlockedDays[taskKey].add(item.originalDate);
-        }
-      });
-      
-      const today = new Date(); today.setHours(0,0,0,0);
-      const planningStart = new Date(today); planningStart.setDate(planningStart.getDate() + 1);
-      const maxDL = new Date(Math.max(...tasks.map(t=>new Date(t.deadline))));
-      const calendar = [];
-      for(let d=new Date(planningStart); d<=maxDL; d.setDate(d.getDate()+1)){
-        const ds = toLocalISO(d);
-        const capacity = getCapacityForDate(ds);
-        const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0);
-        const available = Math.max(0, capacity - reserved - (lockedByDate[ds] || 0));
-        if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date(d).getDay()]});
-      }
-      const sorted = [...tasks].sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
-      sorted.forEach(task=>{
-        const taskKey = getTaskArchiveKey(task);
-        const totalNeed = task.minutes ? Number(task.minutes || 0) : Number(task.hours || 0) * 60;
-        let need = Math.max(0, totalNeed - (lockedByTask[taskKey] || 0));
-        if (!need) return;
-        for(const day of calendar){ 
-          if(need<=0) break; 
-          if(day.remaining<=0) continue; 
-          if(new Date(day.date) >= new Date(task.deadline)) continue;
-          // Überspringe Tage, von denen dieser Task manuell wegverschoben wurde
-          if(taskBlockedDays[taskKey] && taskBlockedDays[taskKey].has(day.date)) continue;
+// UI helpers
+function createRow(containerId, html){
+const div = document.createElement('div');
+div.className = containerId.slice(0,-1) + '-row card';
+div.innerHTML = html;
+const deleteBtn = document.createElement('button');
+deleteBtn.className = 'btn btn-danger delete-btn';
+deleteBtn.type = 'button';
+deleteBtn.textContent = '✕';
+deleteBtn.onclick = () => { div.remove(); renderMonthView(); };
+const rightCol = div.querySelector('.task-col-right');
+if (rightCol) rightCol.appendChild(deleteBtn); else div.appendChild(deleteBtn);
+document.getElementById(containerId).appendChild(div);
+if (containerId === 'tasks'){
+const prio = div.querySelector('.t-imp')?.value || '1';
+div.classList.add(`priority-${prio}`);
+}
+}
+function addTaskRow(){
+const rowId = `task-row-${++taskRowIndex}`;
+createRow('tasks', `
+     <input class="t-title input-task-name" type="text" id="${rowId}-title" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe">
+     <label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label>
+     <input class="t-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="0" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden">
+     <label for="${rowId}-deadline" class="deadline-label">Deadline:</label>
+     <input class="t-dl input-date" id="${rowId}-deadline" type="date" min="${getTodayValue()}" placeholder="Deadline" aria-label="Deadline" title="Deadline">
+     <div class="prio-container"><span class="prio-label">Prio:</span><button type="button" class="prio-btn active" data-priority="1">!</button><button type="button" class="prio-btn" data-priority="2">!!</button><button type="button" class="prio-btn" data-priority="3">!!!</button></div>
+     <input class="t-imp" type="hidden" value="1">
+     <div class="progress-container"></div>
+     <div class="danger-badge"></div>
+   `); }
+const weekdays = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const weekdayShort = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+function normalizeHoursValue(value){
+const numeric = Number(value);
+if (!Number.isFinite(numeric)) return 0;
+const clamped = Math.min(99.75, Math.max(0, numeric));
+return Math.round(clamped * 4) / 4;
+}
+function formatHoursValue(hours){
+const normalized = normalizeHoursValue(hours);
+return Number.isInteger(normalized) ? String(normalized) : String(normalized);
+}
+function sanitizeHourInput(input){
+input.value = formatHoursValue(normalizeHoursValue(input.value));
+}
+function renderSlotGrid(slots = []){
+const slotValues = new Map((slots || []).map(slot => [slot.day, slot.hours]));
+const container = document.getElementById('slots');
+if (!container) return;
+container.innerHTML = '';
+weekdays.forEach((day, index) => {
+const rowId = `slot-${day.toLowerCase()}`;
+const div = document.createElement('div');
+div.className = 'slot-row card';
+div.innerHTML = `
+         <label class="slot-day-label" for="${rowId}-hours" title="${day}">${weekdayShort[index]}</label>
+         <span class="slot-input-label">Lernzeit</span>
+         <input class="s-day" type="hidden" value="${day}">
+         <div class="slot-input-wrap"><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slotValues.get(day) || 0)}" placeholder="0" aria-label="Stunden am ${day}" title="Stunden am ${day}"><span class="slot-unit">h</span></div>
+       `;
+container.appendChild(div);
+});
+}
+function addSlotRow(){ renderSlotGrid(getSlotsFromUI()); }
+function addExceptionRow(){
+const rowId = `exception-row-${++taskRowIndex}`;
+createRow('exceptions', `
+     <input class="e-name input-task-name" type="text" id="${rowId}-name" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme">
+     <label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" placeholder="Von" aria-label="Von" title="Von">
+     <label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" placeholder="Bis" aria-label="Bis" title="Bis">
+   `); }
+function setActiveTab(tab){
+document.querySelectorAll('.tab-button').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab===tab));
+document.querySelectorAll('.tab-content').forEach(panel=> panel.classList.toggle('active', panel.dataset.tab===tab));
+const labels = { tasks: '+ Aufgabe hinzufuegen', capacity: '', exceptions: '+ Ausnahme hinzufuegen', completed: '' };
+const label = labels[tab] || '+ Aufgabe hinzufügen';
+const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = (tab === 'capacity' || tab === 'completed') ? 'none' : ''; }
+}
+function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='exceptions') addExceptionRow(); }
+document.addEventListener('click', e => {
+const btn = e.target.closest('.prio-container button');
+if (!btn) return;
+e.preventDefault();
+const picker = btn.closest('.prio-container');
+const row = btn.closest('.task-row');
+if (!picker || !row) return;
+picker.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
+const input = row.querySelector('.t-imp');
+if (input) input.value = btn.dataset.priority;
+row.classList.remove('priority-1','priority-2','priority-3');
+row.classList.add(`priority-${btn.dataset.priority}`);
+});
+function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
+function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
+function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
+function validateSlotRows(){
+const error = document.getElementById('slots-error');
+if (error) {
+error.textContent = '';
+error.classList.remove('visible');
+}
+return true;
+}
 
-          const alloc = Math.min(need, day.remaining); 
-          plan.push({date:day.date,title:task.title,minutes:alloc,status:'assigned',importance:task.importance,deadline:task.deadline,taskKey}); 
-          day.remaining-=alloc; 
-          need-=alloc; 
-        }
-        if(need>0) plan.push({title:task.title,minutes:need,status:'overdue',importance:task.importance,deadline:task.deadline,taskKey});
-      });
-      return plan;
-    }
+function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+function fillFormData(data){
+document.getElementById('tasks').innerHTML='';
+document.getElementById('slots').innerHTML='';
+document.getElementById('exceptions').innerHTML='';
+window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
+window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
+window.capacityVersions = Array.isArray(data.capacityVersions) ? data.capacityVersions.map(version => ({ validFrom: version.validFrom, slots: normalizeSlotsList(version.slots || []) })).filter(version => version.validFrom) : [];
+window.planSnapshots = data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {};
+window.taskDateOverrides = data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {};
+window.completedTaskKeys = new Set(Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []);
+pruneArchivedTasks();
+pruneReservedCapacity();
+(data.tasks||[]).forEach(t=> {
+const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
+const rowId = `task-row-${++taskRowIndex}`;
+createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
+});
+const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
+renderSlotGrid(currentSlots);
+ensureCapacityVersion(getSlotsFromUI());
+(data.exceptions||[]).forEach(e=> {
+const rowId = `exception-row-${++taskRowIndex}`;
+createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
+});
+setMinDateForPickers();
+renderArchive();
+currentMonthDate = new Date();
+currentMonthDate.setDate(1);
+}
+function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); }
+function saveData(){ persistData(); alert('Daten gespeichert.'); }
+function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
+function loadSavedDataOnStart(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved) return false; try { fillFormData(JSON.parse(saved)); return true; } catch(e) { return false; } }
+function exportData(){ const blob = new Blob([JSON.stringify(getFormData(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
+function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
+function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
+function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
 
-    // UI helpers
-    function createRow(containerId, html){
-      const div = document.createElement('div');
-      div.className = containerId.slice(0,-1) + '-row card';
-      div.innerHTML = html;
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn btn-danger delete-btn';
-      deleteBtn.type = 'button';
-      deleteBtn.textContent = '✕';
-      deleteBtn.onclick = () => { div.remove(); renderMonthView(); };
-      const rightCol = div.querySelector('.task-col-right');
-      if (rightCol) rightCol.appendChild(deleteBtn); else div.appendChild(deleteBtn);
-      document.getElementById(containerId).appendChild(div);
-      if (containerId === 'tasks'){
-        const prio = div.querySelector('.t-imp')?.value || '1';
-        div.classList.add(`priority-${prio}`);
-      }
-    }
-    function addTaskRow(){
-      const rowId = `task-row-${++taskRowIndex}`;
-      createRow('tasks', `
-      <input class="t-title input-task-name" type="text" id="${rowId}-title" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe">
-      <label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label>
-      <input class="t-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="0" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden">
-      <label for="${rowId}-deadline" class="deadline-label">Deadline:</label>
-      <input class="t-dl input-date" id="${rowId}-deadline" type="date" min="${getTodayValue()}" placeholder="Deadline" aria-label="Deadline" title="Deadline">
-      <div class="prio-container"><span class="prio-label">Prio:</span><button type="button" class="prio-btn active" data-priority="1">!</button><button type="button" class="prio-btn" data-priority="2">!!</button><button type="button" class="prio-btn" data-priority="3">!!!</button></div>
-      <input class="t-imp" type="hidden" value="1">
-      <div class="progress-container"></div>
-      <div class="danger-badge"></div>
-    `); }
-    const weekdays = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
-    const weekdayShort = ['Mo','Di','Mi','Do','Fr','Sa','So'];
-    function normalizeHoursValue(value){
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric)) return 0;
-      const clamped = Math.min(99.75, Math.max(0, numeric));
-      return Math.round(clamped * 4) / 4;
-    }
-    function formatHoursValue(hours){
-      const normalized = normalizeHoursValue(hours);
-      return Number.isInteger(normalized) ? String(normalized) : String(normalized);
-    }
-    function sanitizeHourInput(input){
-      input.value = formatHoursValue(normalizeHoursValue(input.value));
-    }
-    function renderSlotGrid(slots = []){
-      const slotValues = new Map((slots || []).map(slot => [slot.day, slot.hours]));
-      const container = document.getElementById('slots');
-      if (!container) return;
-      container.innerHTML = '';
-      weekdays.forEach((day, index) => {
-        const rowId = `slot-${day.toLowerCase()}`;
-        const div = document.createElement('div');
-        div.className = 'slot-row card';
-        div.innerHTML = `
-          <label class="slot-day-label" for="${rowId}-hours" title="${day}">${weekdayShort[index]}</label>
-          <span class="slot-input-label">Lernzeit</span>
-          <input class="s-day" type="hidden" value="${day}">
-          <div class="slot-input-wrap"><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slotValues.get(day) || 0)}" placeholder="0" aria-label="Stunden am ${day}" title="Stunden am ${day}"><span class="slot-unit">h</span></div>
-        `;
-        container.appendChild(div);
-      });
-    }
-    function addSlotRow(){ renderSlotGrid(getSlotsFromUI()); }
-    function addExceptionRow(){
-      const rowId = `exception-row-${++taskRowIndex}`;
-      createRow('exceptions', `
-      <input class="e-name input-task-name" type="text" id="${rowId}-name" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme">
-      <label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" placeholder="Von" aria-label="Von" title="Von">
-      <label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" placeholder="Bis" aria-label="Bis" title="Bis">
-    `); }
-    function setActiveTab(tab){
-      document.querySelectorAll('.tab-button').forEach(btn=> btn.classList.toggle('active', btn.dataset.tab===tab));
-      document.querySelectorAll('.tab-content').forEach(panel=> panel.classList.toggle('active', panel.dataset.tab===tab));
-      const labels = { tasks: '+ Aufgabe hinzufuegen', capacity: '', exceptions: '+ Ausnahme hinzufuegen', completed: '' };
-      const label = labels[tab] || '+ Aufgabe hinzufügen';
-      const add = document.getElementById('tab-add'); if(add){ add.textContent = label; add.style.display = (tab === 'capacity' || tab === 'completed') ? 'none' : ''; }
-    }
-    function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='exceptions') addExceptionRow(); }
-    document.addEventListener('click', e => {
-      const btn = e.target.closest('.prio-container button');
-      if (!btn) return;
-      e.preventDefault();
-      const picker = btn.closest('.prio-container');
-      const row = btn.closest('.task-row');
-      if (!picker || !row) return;
-      picker.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
-      const input = row.querySelector('.t-imp');
-      if (input) input.value = btn.dataset.priority;
-      row.classList.remove('priority-1','priority-2','priority-3');
-      row.classList.add(`priority-${btn.dataset.priority}`);
-    });
-    function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
-    function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
-    function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
-    function validateSlotRows(){
-      const error = document.getElementById('slots-error');
-      if (error) {
-        error.textContent = '';
-        error.classList.remove('visible');
-      }
-      return true;
-    }
+let currentMonthDate = new Date(); currentMonthDate.setDate(1);
+let taskRowIndex = 0;
+window.taskDateOverrides = window.taskDateOverrides || {};
+window.completedTaskKeys = window.completedTaskKeys || new Set();
+window.archivedTasks = [];
+window.reservedCapacityByDate = {};
+window.capacityVersions = [];
+window.planSnapshots = {};
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), capacityVersions: window.capacityVersions || [], planSnapshots: window.planSnapshots || {}, taskDateOverrides: window.taskDateOverrides || {}, completedTaskKeys: [...(window.completedTaskKeys || new Set())], exceptions: getExceptionsFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
-    function fillFormData(data){
-      document.getElementById('tasks').innerHTML='';
-      document.getElementById('slots').innerHTML='';
-      document.getElementById('exceptions').innerHTML='';
-      window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
-      window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
-      window.capacityVersions = Array.isArray(data.capacityVersions) ? data.capacityVersions.map(version => ({ validFrom: version.validFrom, slots: normalizeSlotsList(version.slots || []) })).filter(version => version.validFrom) : [];
-      window.planSnapshots = data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {};
-      window.taskDateOverrides = data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {};
-      window.completedTaskKeys = new Set(Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []);
-      pruneArchivedTasks();
-      pruneReservedCapacity();
-      (data.tasks||[]).forEach(t=> {
-        const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
-        const rowId = `task-row-${++taskRowIndex}`;
-        createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
-      });
-      const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
-      renderSlotGrid(currentSlots);
-      ensureCapacityVersion(getSlotsFromUI());
-      (data.exceptions||[]).forEach(e=> {
-        const rowId = `exception-row-${++taskRowIndex}`;
-        createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
-      });
-      setMinDateForPickers();
-      renderArchive();
-      currentMonthDate = new Date();
-      currentMonthDate.setDate(1);
-    }
-    function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); }
-    function saveData(){ persistData(); alert('Daten gespeichert.'); }
-    function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
-    function loadSavedDataOnStart(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved) return false; try { fillFormData(JSON.parse(saved)); return true; } catch(e) { return false; } }
-    function exportData(){ const blob = new Blob([JSON.stringify(getFormData(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
-    function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
-    function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
-    function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
+function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
+function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
+function getTaskArchiveKey(task){ return task.archiveKey || task.taskKey || `${task.title}|${task.deadline}|${task.importance}|${task.minutes}`; }
+function pruneArchivedTasks(){
+const cutoff = new Date();
+cutoff.setFullYear(cutoff.getFullYear() - 1);
+window.archivedTasks = (window.archivedTasks || []).filter(item => new Date(item.completedAt) >= cutoff);
+}
+function renderArchive(){
+pruneArchivedTasks();
+const container = document.getElementById('completed');
+if (!container) return;
+const items = [...(window.archivedTasks || [])].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt));
+if (!items.length) {
+container.innerHTML = '<div class="archive-empty">Noch keine abgeschlossenen Aufgaben.</div>';
+return;
+}
+container.innerHTML = '<div class="archive-list"></div>';
+const list = container.querySelector('.archive-list');
+items.forEach(item => {
+const row = document.createElement('div');
+row.className = 'archive-row';
+row.innerHTML = `<span class="archive-title">${item.title}</span><span class="archive-meta-group"><span class="archive-meta">Aufwand: ${formatHoursValue((item.minutes||0)/60)}h</span><span class="archive-meta">Deadline: ${formatDateDE(item.deadline)}</span><span class="archive-meta">Abgeschlossen: ${formatDateDE((item.completedAt||'').slice(0,10))}</span></span>`;
+list.appendChild(row);
+});
+}
+function archiveTask(task, reason){
+const archiveKey = getTaskArchiveKey(task);
+if ((window.archivedTasks || []).some(item => item.archiveKey === archiveKey)) return false;
+window.archivedTasks.push({
+archiveKey,
+title: task.title,
+minutes: task.minutes,
+deadline: task.deadline,
+importance: task.importance,
+completedAt: toLocalISO(new Date()),
+reason
+});
+return true;
+}
+function reserveTodayCapacityForArchivedItems(items){
+const todayStr = toLocalISO(new Date());
+const minutes = items
+.filter(item => item.date === todayStr)
+.reduce((sum,item)=>sum + (item.minutes || 0), 0);
+if (!minutes) return;
+window.reservedCapacityByDate[todayStr] = Number(window.reservedCapacityByDate[todayStr] || 0) + minutes;
+}
+function shouldArchiveTask(task, assignedItems){
+const today = new Date(); today.setHours(0,0,0,0);
+const deadline = new Date(task.deadline); deadline.setHours(0,0,0,0);
+if (deadline < today) return 'deadline';
+const assignedMinutes = assignedItems.reduce((sum,item)=>sum + (item.minutes || 0), 0);
+if (assignedItems.length && assignedMinutes >= (task.minutes || 0) && assignedItems.every(item => window.completedTaskKeys.has(item.__originalKey))) return 'all-slots-done';
+return '';
+}
+function archiveCompletedTasks(tasks, results){
+const rows = [...document.querySelectorAll('.task-row')];
+const archivedIndexes = [];
+tasks.forEach((task, index) => {
+const assignedItems = results.filter(item => item.status === 'assigned' && getTaskArchiveKey(item) === getTaskArchiveKey(task));
+const reason = shouldArchiveTask(task, assignedItems);
+if (!reason) return;
+const didArchive = archiveTask(task, reason);
+if (!didArchive) return;
+if (reason === 'all-slots-done') reserveTodayCapacityForArchivedItems(assignedItems);
+assignedItems.forEach(item => {
+window.completedTaskKeys.delete(item.__originalKey);
+if (item.__originalKey) delete window.taskDateOverrides[item.__originalKey];
+});
+archivedIndexes.push(index);
+});
+archivedIndexes.reverse().forEach(index => rows[index]?.remove());
+if (archivedIndexes.length) {
+renderArchive();
+return true;
+}
+renderArchive();
+return false;
+}
+function sortDayTasks(tasks){
+return [...tasks].sort((a,b)=>{
+const doneDiff = Number(isTaskDone(a)) - Number(isTaskDone(b));
+if (doneDiff) return doneDiff;
+return getTaskPriority(b) - getTaskPriority(a);
+});
+}
+function createCalendarTaskElement(task){
+const tb=document.createElement('div');
+const prio = getTaskPriority(task);
+tb.className=`calendar-task task-block priority-${prio}`;
+tb.dataset.originalKey = task.__originalKey || '';
+if (isTaskDone(task)) tb.classList.add('task-done');
+tb.draggable = true;
+tb.dataset.id = task.id;
+tb.dataset.title = task.title;
+const badge = '!'.repeat(prio);
+tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${task.title}</span><span>${formatHoursValue(task.minutes/60)}h</span>`;
+return tb;
+}
 
-    let currentMonthDate = new Date(); currentMonthDate.setDate(1);
-    let taskRowIndex = 0;
-    window.taskDateOverrides = window.taskDateOverrides || {};
-    window.completedTaskKeys = window.completedTaskKeys || new Set();
-    window.archivedTasks = [];
-    window.reservedCapacityByDate = {};
-    window.capacityVersions = [];
-    window.planSnapshots = {};
+function renderMonthView(){
+const tasks = getTasksFromUI();
+const slots = getSlotsFromUI();
+const exceptions = getExceptionsFromUI();
+pruneReservedCapacity();
+validateSlotRows();
+ensureCapacityVersion(slots);
+window.exceptions = exceptions;
+const overrides = window.taskDateOverrides || {};
+const schedulableTasks = applyCarryOverToTasks(tasks);
+const scheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
+const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
+return { ...item, id: `plan-${index}`, __originalKey: originalKey, date: overrides[originalKey] || item.date };
+});
+snapshotTodayPlan(scheduledResults);
+const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
+window.plan = results; window.tasks = tasks;
+if (archiveCompletedTasks(tasks, results)) {
+renderMonthView();
+return;
+}
 
-    function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
-    function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
-    function getTaskArchiveKey(task){ return task.archiveKey || task.taskKey || `${task.title}|${task.deadline}|${task.importance}|${task.minutes}`; }
-    function pruneArchivedTasks(){
-      const cutoff = new Date();
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      window.archivedTasks = (window.archivedTasks || []).filter(item => new Date(item.completedAt) >= cutoff);
-    }
-    function renderArchive(){
-      pruneArchivedTasks();
-      const container = document.getElementById('completed');
-      if (!container) return;
-      const items = [...(window.archivedTasks || [])].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt));
-      if (!items.length) {
-        container.innerHTML = '<div class="archive-empty">Noch keine abgeschlossenen Aufgaben.</div>';
-        return;
-      }
-      container.innerHTML = '<div class="archive-list"></div>';
-      const list = container.querySelector('.archive-list');
-      items.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'archive-row';
-        row.innerHTML = `<span class="archive-title">${item.title}</span><span class="archive-meta-group"><span class="archive-meta">Aufwand: ${formatHoursValue((item.minutes||0)/60)}h</span><span class="archive-meta">Deadline: ${formatDateDE(item.deadline)}</span><span class="archive-meta">Abgeschlossen: ${formatDateDE((item.completedAt||'').slice(0,10))}</span></span>`;
-        list.appendChild(row);
-      });
-    }
-    function archiveTask(task, reason){
-      const archiveKey = getTaskArchiveKey(task);
-      if ((window.archivedTasks || []).some(item => item.archiveKey === archiveKey)) return false;
-      window.archivedTasks.push({
-        archiveKey,
-        title: task.title,
-        minutes: task.minutes,
-        deadline: task.deadline,
-        importance: task.importance,
-        completedAt: toLocalISO(new Date()),
-        reason
-      });
-      return true;
-    }
-    function reserveTodayCapacityForArchivedItems(items){
-      const todayStr = toLocalISO(new Date());
-      const minutes = items
-        .filter(item => item.date === todayStr)
-        .reduce((sum,item)=>sum + (item.minutes || 0), 0);
-      if (!minutes) return;
-      window.reservedCapacityByDate[todayStr] = Number(window.reservedCapacityByDate[todayStr] || 0) + minutes;
-    }
-    function shouldArchiveTask(task, assignedItems){
-      const today = new Date(); today.setHours(0,0,0,0);
-      const deadline = new Date(task.deadline); deadline.setHours(0,0,0,0);
-      if (deadline < today) return 'deadline';
-      const assignedMinutes = assignedItems.reduce((sum,item)=>sum + (item.minutes || 0), 0);
-      if (assignedItems.length && assignedMinutes >= (task.minutes || 0) && assignedItems.every(item => window.completedTaskKeys.has(item.__originalKey))) return 'all-slots-done';
-      return '';
-    }
-    function archiveCompletedTasks(tasks, results){
-      const rows = [...document.querySelectorAll('.task-row')];
-      const archivedIndexes = [];
-      tasks.forEach((task, index) => {
-        const assignedItems = results.filter(item => item.status === 'assigned' && getTaskArchiveKey(item) === getTaskArchiveKey(task));
-        const reason = shouldArchiveTask(task, assignedItems);
-        if (!reason) return;
-        const didArchive = archiveTask(task, reason);
-        if (!didArchive) return;
-        if (reason === 'all-slots-done') reserveTodayCapacityForArchivedItems(assignedItems);
-        assignedItems.forEach(item => {
-          window.completedTaskKeys.delete(item.__originalKey);
-          if (item.__originalKey) delete window.taskDateOverrides[item.__originalKey];
-        });
-        archivedIndexes.push(index);
-      });
-      archivedIndexes.reverse().forEach(index => rows[index]?.remove());
-      if (archivedIndexes.length) {
-        renderArchive();
-        return true;
-      }
-      renderArchive();
-      return false;
-    }
-    function sortDayTasks(tasks){
-      return [...tasks].sort((a,b)=>{
-        const doneDiff = Number(isTaskDone(a)) - Number(isTaskDone(b));
-        if (doneDiff) return doneDiff;
-        return getTaskPriority(b) - getTaskPriority(a);
-      });
-    }
-    function createCalendarTaskElement(task){
-      const tb=document.createElement('div');
-      const prio = getTaskPriority(task);
-      tb.className=`calendar-task task-block priority-${prio}`;
-      tb.dataset.originalKey = task.__originalKey || '';
-      if (isTaskDone(task)) tb.classList.add('task-done');
-      tb.draggable = true;
-      tb.dataset.id = task.__originalKey; // Verwende den stabilen Key statt der flüchtigen Plan-ID
-      tb.dataset.title = task.title;
-      const badge = '!'.repeat(prio);
-      tb.innerHTML = `<span class="task-priority-pill">${badge}</span><span class="task-title">${task.title}</span><span>${formatHoursValue(task.minutes/60)}h</span>`;
-      return tb;
-    }
+const assignedMinutes = tasks.map(() => 0);
+const todayStr = toLocalISO(new Date());
+results.filter(r => r.status === 'assigned' && (r.date >= todayStr || isTaskDone(r))).forEach(result => {
+const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
+if (idx >= 0) assignedMinutes[idx] += result.minutes;
+});
+const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
+document.querySelectorAll('.task-row').forEach((row, i) => {
+const task = tasks[i];
+if (!task) return;
+const warning = overdueTitles.has(task.title);
+row.classList.toggle('deadline-warning', warning);
+let progress = row.querySelector('.progress-container');
+if (!progress) {
+progress = document.createElement('div');
+progress.className = 'progress-container';
+row.appendChild(progress);
+}
+const badge = row.querySelector('.danger-badge');
+if (badge) badge.innerHTML = warning ? '⚠️ Gefährdet' : '';
+const planned = assignedMinutes[i] || 0;
+const total = task.minutes || 0;
+const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
+const ratio = total > 0 ? planned / total : 0;
+const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
+progress.innerHTML = `<div class="progress-info">${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h geplant</div><div class="progress-bar-bg" title="Geplante Stunden: ${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
+});
 
-    function renderMonthView(){
-      const tasks = getTasksFromUI();
-      const slots = getSlotsFromUI();
-      const exceptions = getExceptionsFromUI();
-      pruneReservedCapacity();
-      validateSlotRows();
-      ensureCapacityVersion(slots);
-      window.exceptions = exceptions;
-      const schedulableTasks = applyCarryOverToTasks(tasks);
-      const lockedMovedItems = getLockedMovedItems(schedulableTasks);
-      const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
-        if (item.__originalKey) return { ...item, id: `plan-${index}` };
+const month = new Date(currentMonthDate);
+const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
+const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+const firstDay = (firstDayRaw + 6) % 7;
 
-        const baseKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
-        // Falls dieser Platz ursprünglich von einem Block besetzt war, der nun verschoben wurde,
-        // müssen wir sicherstellen, dass dieser neue "Nachrücker"-Block eine eigene Identität (Key) hat.
-        let finalKey = baseKey;
-        if (window.taskDateOverrides && window.taskDateOverrides[baseKey]) {
-          finalKey = `${baseKey}|refill-${index}`;
-        }
-        return { ...item, id: `plan-${index}`, __originalKey: finalKey };
-      });
-      snapshotTodayPlan(scheduledResults);
-      const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
-      window.plan = results; window.tasks = tasks;
-      if (archiveCompletedTasks(tasks, results)) {
-        renderMonthView();
-        return;
-      }
+const dayPlans = {};
+results.forEach(r=>{ if(r.status==='assigned'){ (dayPlans[r.date] = dayPlans[r.date]||[]).push(r); } });
+const deadlineTasks = {};
+tasks.forEach(t=>{ (deadlineTasks[t.deadline]=deadlineTasks[t.deadline]||[]).push(t); });
 
-      const assignedMinutes = tasks.map(() => 0);
-      const todayStr = toLocalISO(new Date());
-      results.filter(r => r.status === 'assigned' && (r.date >= todayStr || isTaskDone(r))).forEach(result => {
-        const idx = tasks.findIndex(task => task.title === result.title && new Date(result.date) <= new Date(task.deadline));
-        if (idx >= 0) assignedMinutes[idx] += result.minutes;
-      });
-      const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
-      document.querySelectorAll('.task-row').forEach((row, i) => {
-        const task = tasks[i];
-        if (!task) return;
-        const warning = overdueTitles.has(task.title);
-        row.classList.toggle('deadline-warning', warning);
-        let progress = row.querySelector('.progress-container');
-        if (!progress) {
-          progress = document.createElement('div');
-          progress.className = 'progress-container';
-          row.appendChild(progress);
-        }
-        const badge = row.querySelector('.danger-badge');
-        if (badge) badge.innerHTML = warning ? '⚠️ Gefährdet' : '';
-        const planned = assignedMinutes[i] || 0;
-        const total = task.minutes || 0;
-        const pct = total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0;
-        const ratio = total > 0 ? planned / total : 0;
-        const fillClass = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'medium' : 'low';
-        progress.innerHTML = `<div class="progress-info">${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h geplant</div><div class="progress-bar-bg" title="Geplante Stunden: ${formatHoursValue(planned/60)}h von ${formatHoursValue(total/60)}h"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>`;
-      });
+document.getElementById('month-title').textContent = month.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+const container = document.getElementById('month-calendar'); container.innerHTML = '';
+const headerBlank = document.createElement('div'); headerBlank.className = 'week-number'; container.appendChild(headerBlank);
+['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(d=>{ const cell=document.createElement('div'); cell.className='weekday-label'; cell.textContent=d; container.appendChild(cell); });
+const totalCells = firstDay + daysInMonth;
+const weeks = Math.ceil(totalCells / 7);
+let day = 1;
+for(let row=0; row<weeks; row++){
+const weekStart = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay + row*7);
+const [weekYear, weekNo] = getWeekNumber(weekStart);
+const weekLabel = document.createElement('div'); weekLabel.className='week-number'; weekLabel.textContent = `KW ${('0'+weekNo).slice(-2)}`;
+container.appendChild(weekLabel);
+for(let weekday=0; weekday<7; weekday++){
+const dateIndex = row*7 + weekday - firstDay + 1;
+if(dateIndex < 1 || dateIndex > daysInMonth){ const empty=document.createElement('div'); empty.className='day empty'; container.appendChild(empty); continue; }
+const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), dateIndex));
+const dayCell = document.createElement('div'); dayCell.className='day-cell'; dayCell.dataset.date = dateStr; if(dateStr===todayStr) dayCell.classList.add('today');
+const header = document.createElement('div'); header.className='day-header';
+const dayNumber = document.createElement('div'); dayNumber.className='day-number'; dayNumber.textContent = dateIndex; header.appendChild(dayNumber);
+dayCell.appendChild(header);
+const tasksForDay = dayPlans[dateStr]||[];
+const deadlineForDay = deadlineTasks[dateStr]||[];
+const capacity = getCapacityForDate(dateStr);
+const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[dateStr]) || 0);
+const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
+const displayedUsed = used + reserved;
+const util = capacity > 0 ? displayedUsed / capacity : 0;
+const exception = exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
+if(exception){ dayCell.classList.add('exception-day'); const label=document.createElement('div'); label.className='exception-label'; label.textContent = exception.name || 'Ausnahme'; dayCell.appendChild(label); }
+if(capacity>0){
+const utilClass = util > 1 ? 'util-over' : util >= 1 ? 'util-full' : util >= 0.5 ? 'util-medium' : 'util-low';
+dayCell.classList.add(utilClass);
+if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); }
+if(util > 1){ dayCell.classList.add('overloaded'); }
+const capInfo=document.createElement('div');
+capInfo.className='capacity-info';
+capInfo.textContent = `${formatHoursValue(displayedUsed/60)} / ${formatHoursValue(capacity/60)}h`;
+header.appendChild(capInfo);
+}
+if(capacity===0 && tasksForDay.length>0 && !exception){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
+const sortedTasksForDay = sortDayTasks(tasksForDay);
+sortedTasksForDay.slice(0,2).forEach(t=> dayCell.appendChild(createCalendarTaskElement(t)));
+deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.className='deadline-banner'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
+if(sortedTasksForDay.length>2){
+const more=document.createElement('button');
+more.type='button';
+more.className='day-more-toggle';
+more.textContent = `+${sortedTasksForDay.length-2} mehr`;
+const list=document.createElement('div');
+list.className='day-task-list hidden';
+sortedTasksForDay.slice(2).forEach(t=> list.appendChild(createCalendarTaskElement(t)));
+dayCell.appendChild(more);
+dayCell.appendChild(list);
+}
+container.appendChild(dayCell);
+}
+}
 
-      const month = new Date(currentMonthDate);
-      const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
-      const firstDayRaw = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-      const firstDay = (firstDayRaw + 6) % 7;
+}
 
-      const dayPlans = {};
-      results.forEach(r=>{ if(r.status==='assigned'){ (dayPlans[r.date] = dayPlans[r.date]||[]).push(r); } });
-      const deadlineTasks = {};
-      tasks.forEach(t=>{ (deadlineTasks[t.deadline]=deadlineTasks[t.deadline]||[]).push(t); });
+function changeMonth(offset){ currentMonthDate.setMonth(currentMonthDate.getMonth()+offset); renderMonthView(); }
 
-      document.getElementById('month-title').textContent = month.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-      const container = document.getElementById('month-calendar'); container.innerHTML = '';
-      const headerBlank = document.createElement('div'); headerBlank.className = 'week-number'; container.appendChild(headerBlank);
-      ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(d=>{ const cell=document.createElement('div'); cell.className='weekday-label'; cell.textContent=d; container.appendChild(cell); });
-      const totalCells = firstDay + daysInMonth;
-      const weeks = Math.ceil(totalCells / 7);
-      let day = 1;
-      for(let row=0; row<weeks; row++){
-        const weekStart = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay + row*7);
-        const [weekYear, weekNo] = getWeekNumber(weekStart);
-        const weekLabel = document.createElement('div'); weekLabel.className='week-number'; weekLabel.textContent = `KW ${('0'+weekNo).slice(-2)}`;
-        container.appendChild(weekLabel);
-        for(let weekday=0; weekday<7; weekday++){
-          const dateIndex = row*7 + weekday - firstDay + 1;
-          if(dateIndex < 1 || dateIndex > daysInMonth){ const empty=document.createElement('div'); empty.className='day empty'; container.appendChild(empty); continue; }
-          const dateStr = toLocalISO(new Date(month.getFullYear(), month.getMonth(), dateIndex));
-          const dayCell = document.createElement('div'); dayCell.className='day-cell'; dayCell.dataset.date = dateStr; if(dateStr===todayStr) dayCell.classList.add('today');
-          const header = document.createElement('div'); header.className='day-header';
-          const dayNumber = document.createElement('div'); dayNumber.className='day-number'; dayNumber.textContent = dateIndex; header.appendChild(dayNumber);
-          dayCell.appendChild(header);
-          const tasksForDay = dayPlans[dateStr]||[];
-          const deadlineForDay = deadlineTasks[dateStr]||[];
-          const capacity = getCapacityForDate(dateStr);
-          const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[dateStr]) || 0);
-          const used = tasksForDay.reduce((sum,t)=>sum + (t.minutes||0), 0);
-          const displayedUsed = used + reserved;
-          const util = capacity > 0 ? displayedUsed / capacity : 0;
-          const exception = exceptions.find(e => dateStr >= e.from && dateStr <= e.to);
-          if(exception){ dayCell.classList.add('exception-day'); const label=document.createElement('div'); label.className='exception-label'; label.textContent = exception.name || 'Ausnahme'; dayCell.appendChild(label); }
-          if(capacity>0){
-            const utilClass = util > 1 ? 'util-over' : util >= 1 ? 'util-full' : util >= 0.5 ? 'util-medium' : 'util-low';
-            dayCell.classList.add(utilClass);
-            if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); }
-            if(util > 1){ dayCell.classList.add('overloaded'); }
-            const capInfo=document.createElement('div');
-            capInfo.className='capacity-info';
-            capInfo.textContent = `${formatHoursValue(displayedUsed/60)} / ${formatHoursValue(capacity/60)}h`;
-            header.appendChild(capInfo);
-          }
-          if(capacity===0 && tasksForDay.length>0 && !exception){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
-          const sortedTasksForDay = sortDayTasks(tasksForDay);
-          sortedTasksForDay.slice(0,2).forEach(t=> dayCell.appendChild(createCalendarTaskElement(t)));
-          deadlineForDay.forEach(t=>{ const dl=document.createElement('div'); dl.className='deadline-banner'; dl.textContent = `Deadline: ${t.title}`; dayCell.appendChild(dl); });
-          if(sortedTasksForDay.length>2){
-            const more=document.createElement('button');
-            more.type='button';
-            more.className='day-more-toggle';
-            more.textContent = `+${sortedTasksForDay.length-2} mehr`;
-            const list=document.createElement('div');
-            list.className='day-task-list hidden';
-            sortedTasksForDay.slice(2).forEach(t=> list.appendChild(createCalendarTaskElement(t)));
-            dayCell.appendChild(more);
-            dayCell.appendChild(list);
-          }
-          container.appendChild(dayCell);
-        }
-      }
+// wire controls
+document.getElementById('prev-month').addEventListener('click', ()=>changeMonth(-1));
+document.getElementById('next-month').addEventListener('click', ()=>changeMonth(1));
+document.getElementById('save-data').addEventListener('click', saveData);
+document.getElementById('load-data').addEventListener('click', loadData);
+document.getElementById('export-data').addEventListener('click', exportData);
+document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
+document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
+document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
+const toolbarTooltip = document.getElementById('toolbar-tooltip');
+const hoverText = {
+'save-data': 'Speichert den aktuellen Lernplan im lokalen Speicher.',
+'load-data': 'Lädt den zuletzt gespeicherten Lernplan.',
+'export-data': 'Exportiert die aktuellen Daten als JSON-Datei.',
+'import-data': 'Importiert einen gespeicherten Lernplan aus einer JSON-Datei.',
+'toggle-dark': 'Wechselt zwischen hellem und dunklem Modus.'
+};
+document.querySelectorAll('#main-toolbar button').forEach(btn=>{
+btn.addEventListener('mouseenter', ()=> { toolbarTooltip.textContent = hoverText[btn.id] || 'Info nicht verfügbar.'; });
+btn.addEventListener('mouseleave', ()=> { toolbarTooltip.textContent = 'Hover über einen Button für eine Kurzinfo.'; });
+});
 
-    }
+document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
+document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 
-    function changeMonth(offset){ currentMonthDate.setMonth(currentMonthDate.getMonth()+offset); renderMonthView(); }
+document.addEventListener('input', e => {
+renderMonthView();
+persistData();
+});
+document.addEventListener('change', e => {
+const hoursInput = e.target.closest('.input-hours');
+if (hoursInput) sanitizeHourInput(hoursInput);
+renderMonthView();
+persistData();
+});
+window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); if(!loadSavedDataOnStart()) renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView(); persistData();
+const calendarContainer = document.getElementById('month-calendar');
+if (calendarContainer){
+calendarContainer.addEventListener('click', e => {
+const moreButton = e.target.closest('.day-more-toggle');
+if (moreButton) {
+const list = moreButton.nextElementSibling;
+if (list && list.classList.contains('day-task-list')) {
+if (!moreButton.dataset.label) moreButton.dataset.label = moreButton.textContent;
+const willOpen = list.classList.contains('hidden');
+list.classList.toggle('hidden', !willOpen);
+moreButton.textContent = willOpen ? 'Weniger anzeigen' : moreButton.dataset.label;
+}
+return;
+}
+const taskElement = e.target.closest('.calendar-task');
+if (!taskElement) return;
+if (taskElement.classList.contains('is-dragging')) return;
+taskElement.classList.toggle('task-done');
+const originalKey = taskElement.dataset.originalKey;
+if (!originalKey) return;
+if (taskElement.classList.contains('task-done')) window.completedTaskKeys.add(originalKey);
+else window.completedTaskKeys.delete(originalKey);
+renderMonthView();
+persistData();
+});
+calendarContainer.addEventListener('dragstart', e => {
+const taskElement = e.target.closest('.calendar-task');
+if (!taskElement) return;
+taskElement.classList.add('is-dragging');
+e.dataTransfer.setData('text/plain', taskElement.dataset.id || '');
+});
+calendarContainer.addEventListener('dragend', e => {
+const taskElement = e.target.closest('.calendar-task');
+if (taskElement) taskElement.classList.remove('is-dragging');
+});
+calendarContainer.addEventListener('dragover', e => {
+const dayElement = e.target.closest('.day-cell');
+if (dayElement) e.preventDefault();
+});
+calendarContainer.addEventListener('drop', e => {
+e.preventDefault();
+const dayElement = e.target.closest('.day-cell');
+const taskId = e.dataTransfer.getData('text/plain');
+if (dayElement && taskId) moveTaskToDay(taskId, dayElement.dataset.date);
+});
+}
+});
 
-    // wire controls
-    document.getElementById('prev-month').addEventListener('click', ()=>changeMonth(-1));
-    document.getElementById('next-month').addEventListener('click', ()=>changeMonth(1));
-    document.getElementById('save-data').addEventListener('click', saveData);
-    document.getElementById('load-data').addEventListener('click', loadData);
-    document.getElementById('export-data').addEventListener('click', exportData);
-    document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
-    document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
-    document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
-    const toolbarTooltip = document.getElementById('toolbar-tooltip');
-    const hoverText = {
-      'save-data': 'Speichert den aktuellen Lernplan im lokalen Speicher.',
-      'load-data': 'Lädt den zuletzt gespeicherten Lernplan.',
-      'export-data': 'Exportiert die aktuellen Daten als JSON-Datei.',
-      'import-data': 'Importiert einen gespeicherten Lernplan aus einer JSON-Datei.',
-      'toggle-dark': 'Wechselt zwischen hellem und dunklem Modus.'
-    };
-    document.querySelectorAll('#main-toolbar button').forEach(btn=>{
-      btn.addEventListener('mouseenter', ()=> { toolbarTooltip.textContent = hoverText[btn.id] || 'Info nicht verfügbar.'; });
-      btn.addEventListener('mouseleave', ()=> { toolbarTooltip.textContent = 'Hover über einen Button für eine Kurzinfo.'; });
-    });
+function moveTaskToDay(taskId, newDate){
+const item = (window.plan||[]).find(p => p.id === taskId);
+if (!item) return;
+if (new Date(newDate) > new Date(item.deadline)){
+alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
+return;
+}
+if (item.__originalKey){
+window.taskDateOverrides[item.__originalKey] = newDate;
+}
+renderMonthView();
+persistData();
+}
 
-    document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
-    document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
+// simple auto-save
+function enableAutoSave(){ document.addEventListener('change', ()=>{
+persistData();
+}); }
+enableAutoSave();
 
-    document.addEventListener('input', e => {
-      renderMonthView();
-      persistData();
-    });
-    document.addEventListener('change', e => {
-      const hoursInput = e.target.closest('.input-hours');
-      if (hoursInput) sanitizeHourInput(hoursInput);
-      renderMonthView();
-      persistData();
-    });
-    window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); if(!loadSavedDataOnStart()) renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView(); persistData();
-      const calendarContainer = document.getElementById('month-calendar');
-      if (calendarContainer){
-        calendarContainer.addEventListener('click', e => {
-          const moreButton = e.target.closest('.day-more-toggle');
-          if (moreButton) {
-            const list = moreButton.nextElementSibling;
-            if (list && list.classList.contains('day-task-list')) {
-              if (!moreButton.dataset.label) moreButton.dataset.label = moreButton.textContent;
-              const willOpen = list.classList.contains('hidden');
-              list.classList.toggle('hidden', !willOpen);
-              moreButton.textContent = willOpen ? 'Weniger anzeigen' : moreButton.dataset.label;
-            }
-            return;
-          }
-          const taskElement = e.target.closest('.calendar-task');
-          if (!taskElement) return;
-          if (taskElement.classList.contains('is-dragging')) return;
-          taskElement.classList.toggle('task-done');
-          const originalKey = taskElement.dataset.originalKey;
-          if (!originalKey) return;
-          if (taskElement.classList.contains('task-done')) window.completedTaskKeys.add(originalKey);
-          else window.completedTaskKeys.delete(originalKey);
-          renderMonthView();
-          persistData();
-        });
-        calendarContainer.addEventListener('dragstart', e => {
-          const taskElement = e.target.closest('.calendar-task');
-          if (!taskElement) return;
-          taskElement.classList.add('is-dragging');
-          e.dataTransfer.setData('text/plain', taskElement.dataset.id || '');
-        });
-        calendarContainer.addEventListener('dragend', e => {
-          const taskElement = e.target.closest('.calendar-task');
-          if (taskElement) taskElement.classList.remove('is-dragging');
-        });
-        calendarContainer.addEventListener('dragover', e => {
-          const dayElement = e.target.closest('.day-cell');
-          if (dayElement) e.preventDefault();
-        });
-        calendarContainer.addEventListener('drop', e => {
-          e.preventDefault();
-          const dayElement = e.target.closest('.day-cell');
-          const taskId = e.dataTransfer.getData('text/plain');
-          if (dayElement && taskId) moveTaskToDay(taskId, dayElement.dataset.date);
-        });
-      }
-    });
-
-    function moveTaskToDay(taskId, newDate){
-      const item = (window.plan||[]).find(p => p.__originalKey === taskId);
-      if (!item) return;
-      if (new Date(newDate) > new Date(item.deadline)){
-        alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
-        return;
-      }
-
-      const originalDate = item.originalDate || item.date;
-      // Falls der Block auf sein ursprüngliches Datum zurückgeschoben wird, lösche den Override
-      if (newDate === originalDate) {
-        delete window.taskDateOverrides[taskId];
-      } else if (item.__originalKey) {
-        const frozen = freezePlanItem(item);
-        frozen.originalDate = originalDate;
-        window.taskDateOverrides[item.__originalKey] = { date: newDate, item: frozen };
-      }
-
-      renderMonthView();
-      persistData();
-    }
-
-    // simple auto-save
-    function enableAutoSave(){ document.addEventListener('change', ()=>{
-      persistData();
-    }); }
-    enableAutoSave();
-
-  </script>
+</script>
 </body>
 </html>
