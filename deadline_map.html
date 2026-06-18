@@ -878,8 +878,16 @@
       const schedulableTasks = applyCarryOverToTasks(tasks);
       const lockedMovedItems = getLockedMovedItems(schedulableTasks);
       const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
-        const originalKey = item.__originalKey || `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
-        return { ...item, id: `plan-${index}`, __originalKey: originalKey };
+        if (item.__originalKey) return { ...item, id: `plan-${index}` };
+
+        const baseKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
+        // Falls dieser Platz ursprünglich von einem Block besetzt war, der nun verschoben wurde,
+        // müssen wir sicherstellen, dass dieser neue "Nachrücker"-Block eine eigene Identität (Key) hat.
+        let finalKey = baseKey;
+        if (window.taskDateOverrides && window.taskDateOverrides[baseKey]) {
+          finalKey = `${baseKey}|refill-${index}`;
+        }
+        return { ...item, id: `plan-${index}`, __originalKey: finalKey };
       });
       snapshotTodayPlan(scheduledResults);
       const results = mergeHistoricalSnapshots(scheduledResults).map((item, index) => ({ ...item, id: item.id || `plan-${index}` }));
@@ -1080,12 +1088,17 @@
         alert(`Die Aufgabe "${item.title}" darf nicht nach ihrer Deadline (${formatDateDE(item.deadline)}) verschoben werden.`);
         return;
       }
-      if (item.__originalKey){
+
+      const originalDate = item.originalDate || item.date;
+      // Falls der Block auf sein ursprüngliches Datum zurückgeschoben wird, lösche den Override
+      if (newDate === originalDate) {
+        delete window.taskDateOverrides[taskId];
+      } else if (item.__originalKey) {
         const frozen = freezePlanItem(item);
-        // Merke dir das ursprüngliche Datum, damit der Slot für diesen Task gesperrt bleibt
-        frozen.originalDate = item.originalDate || item.date;
+        frozen.originalDate = originalDate;
         window.taskDateOverrides[item.__originalKey] = { date: newDate, item: frozen };
       }
+
       renderMonthView();
       persistData();
     }
