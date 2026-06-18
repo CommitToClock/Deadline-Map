@@ -215,6 +215,7 @@
     .override-day span{font-size:0.66rem;font-weight:800;color:#475569;text-transform:uppercase;}
     .override-day input{width:3rem !important;min-width:3rem !important;text-align:center;padding:0.28rem 0.2rem;}
     .override-row .delete-btn{margin-left:0;padding:0.22rem 0.4rem;flex:0 0 auto;}
+    .override-standard-btn{padding:0.22rem 0.45rem;font-size:0.72rem;white-space:nowrap;flex:0 0 auto;}
 
     .calendar-day .red-line,
     .calendar-day::before,
@@ -414,7 +415,7 @@
       <div id="exceptions"></div>
     </section>
     <section class="card-panel tab-content" id="overrides-panel" data-tab="overrides">
-      <p class="section-description">Abweichende Lernzeit pro Kalenderwoche in Stunden</p>
+      <p class="section-description">Einzelne KW ueberschreiben oder als neuen Standard ab dieser KW setzen</p>
       <div id="overrides"></div>
     </section>
     <section class="card-panel tab-content" id="completed-panel" data-tab="completed">
@@ -444,6 +445,16 @@
     function isException(dateStr) {
       return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
     }
+    function weekSortKey(year, week) {
+      return (Number(year) || 0) * 100 + (Number(week) || 0);
+    }
+    function getStandardCapacityRuleForDate(dateStr) {
+      const [year, week] = getWeekNumber(new Date(dateStr));
+      const dateKey = weekSortKey(year, week);
+      return [...(window.standardCapacityRules || [])]
+        .filter(rule => weekSortKey(rule.year, rule.week) <= dateKey)
+        .sort((a, b) => weekSortKey(b.year, b.week) - weekSortKey(a.year, a.week))[0] || null;
+    }
     function getCapacityForDate(dateStr, slotMap = window.slotMap || {}) {
       if (isException(dateStr)) return 0;
       const date = new Date(dateStr);
@@ -451,6 +462,8 @@
       const override = (window.weeklyCapacityOverrides || []).find(item => Number(item.year) === year && Number(item.week) === week);
       const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
       if (override) return Math.round(normalizeHoursValue((override.slots || {})[dayName] || 0) * 60);
+      const standardRule = getStandardCapacityRuleForDate(dateStr);
+      if (standardRule) return Math.round(normalizeHoursValue((standardRule.slots || {})[dayName] || 0) * 60);
       return slotMap[dayName] || 0;
     }
 
@@ -584,6 +597,7 @@
           <input class="o-week" id="${rowId}-week" type="number" min="1" max="53" value="${week}" aria-label="Kalenderwoche">
         </div>
         <div class="override-days">${days}</div>
+        <button type="button" class="btn override-standard-btn">Als Standard ab KW</button>
       `);
     }
     function setActiveTab(tab){
@@ -595,6 +609,13 @@
     }
     function addActiveTabRow(){ const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'tasks'; if(activeTab==='tasks') addTaskRow(); else if(activeTab==='slots') addSlotRow(); else if(activeTab==='exceptions') addExceptionRow(); else if(activeTab==='overrides') addOverrideRow(); }
     document.addEventListener('click', e => {
+      const standardButton = e.target.closest('.override-standard-btn');
+      if (standardButton) {
+        e.preventDefault();
+        const row = standardButton.closest('.override-row');
+        if (row) setOverrideAsStandard(row);
+        return;
+      }
       const btn = e.target.closest('.prio-container button');
       if (!btn) return;
       e.preventDefault();
@@ -624,6 +645,31 @@
         };
       }).filter(item => item.year && item.week >= 1 && item.week <= 53);
     }
+    function getOverrideFromRow(row) {
+      const slots = {};
+      row.querySelectorAll('.override-day').forEach(dayRow => {
+        const day = dayRow.querySelector('.o-day').value;
+        slots[day] = normalizeHoursValue(dayRow.querySelector('.o-hrs').value || 0);
+      });
+      return {
+        year: Number(row.querySelector('.o-year').value),
+        week: Number(row.querySelector('.o-week').value),
+        slots
+      };
+    }
+    function setOverrideAsStandard(row) {
+      const rule = getOverrideFromRow(row);
+      if (!rule.year || rule.week < 1 || rule.week > 53) {
+        alert('Bitte Jahr und KW korrekt eingeben.');
+        return;
+      }
+      window.standardCapacityRules = (window.standardCapacityRules || [])
+        .filter(item => weekSortKey(item.year, item.week) !== weekSortKey(rule.year, rule.week));
+      window.standardCapacityRules.push(rule);
+      window.standardCapacityRules.sort((a, b) => weekSortKey(a.year, a.week) - weekSortKey(b.year, b.week));
+      alert(`Standard ab KW ${rule.week}/${rule.year} gesetzt.`);
+      renderMonthView();
+    }
     function validateSlotRows(){
       const error = document.getElementById('slots-error');
       if (error) {
@@ -633,13 +679,14 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), standardCapacityRules: window.standardCapacityRules || [], archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
       document.getElementById('exceptions').innerHTML='';
       document.getElementById('overrides').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
+      window.standardCapacityRules = Array.isArray(data.standardCapacityRules) ? data.standardCapacityRules : [];
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
       pruneArchivedTasks();
       pruneReservedCapacity();
@@ -673,6 +720,7 @@
     window.archivedTasks = [];
     window.reservedCapacityByDate = {};
     window.weeklyCapacityOverrides = [];
+    window.standardCapacityRules = [];
 
     function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
     function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
@@ -994,6 +1042,7 @@
       localStorage.setItem('lernplan_autosave_slots', JSON.stringify([...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: r.querySelector('.s-hrs').value }))));
       localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
       localStorage.setItem('lernplan_autosave_overrides', JSON.stringify(getOverridesFromUI()));
+      localStorage.setItem('lernplan_autosave_standard_rules', JSON.stringify(window.standardCapacityRules || []));
     }); }
     enableAutoSave();
 
