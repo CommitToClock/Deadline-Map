@@ -410,7 +410,7 @@
       <div id="slots-error" class="form-error" role="alert"></div>
       <div id="slots"></div>
       <div class="panel-header">
-        <p class="section-description">Kapazitaet fuer einzelne Kalenderwochen</p>
+        <p class="section-description">Kapazitaet fuer KW-Zeitraeume</p>
         <button type="button" id="add-override" class="btn btn-compact">+ KW hinzufuegen</button>
       </div>
       <div id="overrides"></div>
@@ -448,6 +448,16 @@
     function weekSortKey(year, week) {
       return (Number(year) || 0) * 100 + (Number(week) || 0);
     }
+    function getOverrideStartWeek(item) {
+      return Number(item.startWeek || item.week || 1);
+    }
+    function getOverrideEndWeek(item) {
+      return Number(item.endWeek || item.week || item.startWeek || 53);
+    }
+    function getNextWeek(year, week) {
+      if (Number(week) >= 53) return { year: Number(year) + 1, week: 1 };
+      return { year: Number(year), week: Number(week) + 1 };
+    }
     function getSlotStandardRuleForDate(dateStr) {
       const [year, week] = getWeekNumber(new Date(dateStr));
       const dateKey = weekSortKey(year, week);
@@ -459,7 +469,11 @@
       if (isException(dateStr)) return 0;
       const date = new Date(dateStr);
       const [year, week] = getWeekNumber(date);
-      const override = (window.weeklyCapacityOverrides || []).find(item => Number(item.year) === year && Number(item.week) === week);
+      const dateKey = weekSortKey(year, week);
+      const override = (window.weeklyCapacityOverrides || []).find(item => {
+        if (Number(item.year) !== year) return false;
+        return dateKey >= weekSortKey(item.year, getOverrideStartWeek(item)) && dateKey <= weekSortKey(item.year, getOverrideEndWeek(item));
+      });
       const dayName = date.toLocaleDateString('de-DE', { weekday: 'long' });
       if (override) return Math.round(normalizeHoursValue((override.slots || {})[dayName] || 0) * 60);
       const standardRule = getSlotStandardRuleForDate(dateStr);
@@ -589,7 +603,8 @@
       const rowId = `override-row-${++taskRowIndex}`;
       const [currentYear, currentWeek] = getWeekNumber(new Date());
       const year = Number(override?.year || currentYear);
-      const week = Number(override?.week || currentWeek);
+      const startWeek = Number(override?.startWeek || override?.week || currentWeek);
+      const endWeek = Number(override?.endWeek || override?.week || startWeek);
       const slots = override?.slots || {};
       const days = weekdays.map((day, index) => `
         <label class="override-day">
@@ -602,11 +617,13 @@
         <div class="override-head">
           <label for="${rowId}-year">Jahr</label>
           <input class="o-year" id="${rowId}-year" type="number" min="2020" max="2100" value="${year}" aria-label="Jahr">
-          <label for="${rowId}-week">KW</label>
-          <input class="o-week" id="${rowId}-week" type="number" min="1" max="53" value="${week}" aria-label="Kalenderwoche">
+          <label for="${rowId}-start-week">Start-KW</label>
+          <input class="o-start-week" id="${rowId}-start-week" type="number" min="1" max="53" value="${startWeek}" aria-label="Start-Kalenderwoche">
+          <label for="${rowId}-end-week">End-KW</label>
+          <input class="o-end-week" id="${rowId}-end-week" type="number" min="1" max="53" value="${endWeek}" aria-label="End-Kalenderwoche">
         </div>
         <div class="override-days">${days}</div>
-        <button type="button" class="btn override-standard-btn">Ab KW in Slots uebernehmen</button>
+        <button type="button" class="btn override-standard-btn">Zeitraum in Slots uebernehmen</button>
       `);
     }
     function setActiveTab(tab){
@@ -649,10 +666,11 @@
         });
         return {
           year: Number(row.querySelector('.o-year').value),
-          week: Number(row.querySelector('.o-week').value),
+          startWeek: Number(row.querySelector('.o-start-week').value),
+          endWeek: Number(row.querySelector('.o-end-week').value),
           slots
         };
-      }).filter(item => item.year && item.week >= 1 && item.week <= 53);
+      }).filter(item => item.year && item.startWeek >= 1 && item.startWeek <= 53 && item.endWeek >= item.startWeek && item.endWeek <= 53);
     }
     function getOverrideFromRow(row) {
       const slots = {};
@@ -662,26 +680,34 @@
       });
       return {
         year: Number(row.querySelector('.o-year').value),
-        week: Number(row.querySelector('.o-week').value),
+        startWeek: Number(row.querySelector('.o-start-week').value),
+        endWeek: Number(row.querySelector('.o-end-week').value),
         slots
       };
     }
     function copyOverrideToSlots(row) {
       const rule = getOverrideFromRow(row);
-      if (!rule.year || rule.week < 1 || rule.week > 53) {
-        alert('Bitte Jahr und KW korrekt eingeben.');
+      if (!rule.year || rule.startWeek < 1 || rule.startWeek > 53 || rule.endWeek < rule.startWeek || rule.endWeek > 53) {
+        alert('Bitte Jahr, Start-KW und End-KW korrekt eingeben.');
         return;
       }
       if (!window.activeSlotStandardKey) {
         window.baseSlots = getSlotsFromUI();
       }
+      const baseSource = (window.baseSlots && window.baseSlots.length) ? window.baseSlots : getSlotsFromUI();
+      const baseSlots = slotsListToObject(baseSource);
+      const afterRange = getNextWeek(rule.year, rule.endWeek);
       window.slotStandardRules = (window.slotStandardRules || [])
-        .filter(item => weekSortKey(item.year, item.week) !== weekSortKey(rule.year, rule.week));
-      window.slotStandardRules.push(rule);
+        .filter(item => {
+          const key = weekSortKey(item.year, item.week);
+          return key !== weekSortKey(rule.year, rule.startWeek) && key !== weekSortKey(afterRange.year, afterRange.week);
+        });
+      window.slotStandardRules.push({ year: rule.year, week: rule.startWeek, slots: rule.slots });
+      window.slotStandardRules.push({ year: afterRange.year, week: afterRange.week, slots: baseSlots });
       window.slotStandardRules.sort((a, b) => weekSortKey(a.year, a.week) - weekSortKey(b.year, b.week));
-      window.activeSlotStandardKey = weekSortKey(rule.year, rule.week);
+      window.activeSlotStandardKey = weekSortKey(rule.year, rule.startWeek);
       renderSlotGrid(slotsObjectToList(rule.slots));
-      alert(`Werte wurden ab KW ${rule.week}/${rule.year} in Slots uebernommen.`);
+      alert(`Werte wurden von KW ${rule.startWeek} bis KW ${rule.endWeek}/${rule.year} in Slots uebernommen.`);
       renderMonthView();
     }
     function syncActiveSlotStandardFromSlots() {

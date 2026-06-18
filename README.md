@@ -9,7 +9,7 @@ Deadline Map ist eine interaktive Web-App zur Lern- und Deadlineplanung. Nutzeri
 - Aufgaben mit benoetigter Zeit, Deadline und Prioritaet erfassen
 - Kapazitaeten in einem gemeinsamen Bereich fuer Standard-Lernzeiten und KW-Abweichungen pflegen
 - Ausnahmetage wie Urlaub, Krankheit oder Pruefungsphasen eintragen
-- Kapazitaeten fuer einzelne Kalenderwochen ueberschreiben oder ab einer KW in die Standard-Slots uebernehmen
+- Kapazitaeten fuer KW-Zeitraeume ueberschreiben oder fuer einen Zeitraum in die Standard-Slots uebernehmen
 - Automatische Verteilung der Aufgaben auf freie Tage
 - Live-Anzeige fuer Zeitmangel, geplante Stunden und freie Restkapazitaeten
 - Speichern, Laden, Export und Import der Planungsdaten im Browser
@@ -93,4 +93,4 @@ Das Repository ist fuer ein Deployment auf Render vorbereitet. Fuer Plattformen 
 
 Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.
 
-Im Bereich `Kapazitaeten` bilden die Standard-Slots den Basis-Lernplan. Einzelne Kalenderwochen koennen davon abweichen. Die Werte einer KW koennen ab der gewaehlten KW in die Standard-Slots uebernommen und dort weiter bearbeitet werden; vorherige Wochen nutzen weiter den bisherigen Basis-Slotplan.
+Im Bereich `Kapazitaeten` bilden die Standard-Slots den Basis-Lernplan. Fuer abweichende Wochen koennen Start-KW und End-KW eingetragen werden, zum Beispiel KW 28 bis einschliesslich KW 31. Beim Uebernehmen in die Slots gelten diese Werte ab der Start-KW bis zur End-KW; ab der folgenden KW wird automatisch wieder der vorherige Basis-Slotplan gesetzt.
