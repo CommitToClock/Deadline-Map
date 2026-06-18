@@ -512,6 +512,41 @@
         return { ...task, minutes: remainingMinutes, originalMinutes: task.minutes, completedMinutes };
       }).filter(task => task.minutes > 0);
     }
+    function getMovedOverrideDate(value) {
+      return typeof value === 'string' ? value : value?.date;
+    }
+    function buildMovedItemFromOverride(originalKey, value, tasks) {
+      const targetDate = getMovedOverrideDate(value);
+      if (!targetDate) return null;
+      if (value && typeof value === 'object' && value.item) {
+        return { ...value.item, date: targetDate, __originalKey: originalKey, locked: true };
+      }
+      const parts = String(originalKey).split('|');
+      if (parts.length < 5) return null;
+      const originalDate = parts.pop();
+      const minutes = Number(parts.pop() || 0);
+      const importance = parts.pop() || '1';
+      const deadline = parts.pop() || '';
+      const title = parts.join('|');
+      const task = (tasks || []).find(item => item.title === title && item.deadline === deadline && String(item.importance) === String(importance));
+      return {
+        date: targetDate,
+        title,
+        minutes,
+        status: 'assigned',
+        importance,
+        deadline,
+        taskKey: task ? getTaskArchiveKey(task) : `${title}|${deadline}|${importance}|${minutes}`,
+        __originalKey: originalKey,
+        originalDate,
+        locked: true
+      };
+    }
+    function getLockedMovedItems(tasks) {
+      return Object.entries(window.taskDateOverrides || {})
+        .map(([originalKey, value]) => buildMovedItemFromOverride(originalKey, value, tasks))
+        .filter(Boolean);
+    }
     function pruneReservedCapacity(){
       const todayStr = toLocalISO(new Date());
       Object.keys(window.reservedCapacityByDate || {}).forEach(date => {
@@ -815,15 +850,8 @@
       validateSlotRows();
       ensureCapacityVersion(slots);
       window.exceptions = exceptions;
-      const overrides = window.taskDateOverrides || {};
       const schedulableTasks = applyCarryOverToTasks(tasks);
-      const baseScheduledResults = schedule(schedulableTasks, slots, exceptions).map((item,index)=>{
-        const originalKey = `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
-        return { ...item, id: `plan-${index}`, __originalKey: originalKey, originalDate: item.date };
-      });
-      const lockedMovedItems = baseScheduledResults
-        .filter(item => item.status === 'assigned' && overrides[item.__originalKey] && overrides[item.__originalKey] !== item.originalDate)
-        .map(item => ({ ...item, date: overrides[item.__originalKey], locked: true }));
+      const lockedMovedItems = getLockedMovedItems(schedulableTasks);
       const scheduledResults = schedule(schedulableTasks, slots, exceptions, lockedMovedItems).map((item,index)=>{
         const originalKey = item.__originalKey || `${item.title}|${item.deadline}|${item.importance}|${item.minutes}|${item.date}`;
         return { ...item, id: `plan-${index}`, __originalKey: originalKey };
@@ -1028,7 +1056,7 @@
         return;
       }
       if (item.__originalKey){
-        window.taskDateOverrides[item.__originalKey] = newDate;
+        window.taskDateOverrides[item.__originalKey] = { date: newDate, item: freezePlanItem(item) };
       }
       renderMonthView();
       persistData();
