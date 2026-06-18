@@ -568,6 +568,15 @@
         container.appendChild(div);
       });
     }
+    function slotsObjectToList(slots = {}) {
+      return weekdays.map(day => ({ day, hours: normalizeHoursValue(slots[day] || 0) })).filter(slot => slot.hours > 0);
+    }
+    function slotsListToObject(slots = []) {
+      const result = {};
+      weekdays.forEach(day => { result[day] = 0; });
+      slots.forEach(slot => { result[slot.day] = normalizeHoursValue(slot.hours || 0); });
+      return result;
+    }
     function addSlotRow(){ renderSlotGrid(getSlotsFromUI()); }
     function addExceptionRow(){
       const rowId = `exception-row-${++taskRowIndex}`;
@@ -667,8 +676,16 @@
         .filter(item => weekSortKey(item.year, item.week) !== weekSortKey(rule.year, rule.week));
       window.standardCapacityRules.push(rule);
       window.standardCapacityRules.sort((a, b) => weekSortKey(a.year, a.week) - weekSortKey(b.year, b.week));
-      alert(`Standard ab KW ${rule.week}/${rule.year} gesetzt.`);
+      window.activeStandardRuleKey = weekSortKey(rule.year, rule.week);
+      renderSlotGrid(slotsObjectToList(rule.slots));
+      alert(`Standard ab KW ${rule.week}/${rule.year} gesetzt und in Slots geladen.`);
       renderMonthView();
+    }
+    function syncActiveStandardFromSlots() {
+      if (!window.activeStandardRuleKey) return;
+      const rule = (window.standardCapacityRules || []).find(item => weekSortKey(item.year, item.week) === window.activeStandardRuleKey);
+      if (!rule) return;
+      rule.slots = slotsListToObject(getSlotsFromUI());
     }
     function validateSlotRows(){
       const error = document.getElementById('slots-error');
@@ -679,7 +696,7 @@
       return true;
     }
 
-    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), standardCapacityRules: window.standardCapacityRules || [], archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
+    function getFormData(){ pruneArchivedTasks(); pruneReservedCapacity(); syncActiveStandardFromSlots(); return { tasks: getTasksFromUI(), slots: getSlotsFromUI(), exceptions: getExceptionsFromUI(), overrides: getOverridesFromUI(), standardCapacityRules: window.standardCapacityRules || [], activeStandardRuleKey: window.activeStandardRuleKey || 0, archivedTasks: window.archivedTasks || [], reservedCapacityByDate: window.reservedCapacityByDate || {}, month: currentMonthDate.toISOString().slice(0,7) }; }
     function fillFormData(data){
       document.getElementById('tasks').innerHTML='';
       document.getElementById('slots').innerHTML='';
@@ -687,6 +704,7 @@
       document.getElementById('overrides').innerHTML='';
       window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
       window.standardCapacityRules = Array.isArray(data.standardCapacityRules) ? data.standardCapacityRules : [];
+      window.activeStandardRuleKey = Number(data.activeStandardRuleKey || 0);
       window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
       pruneArchivedTasks();
       pruneReservedCapacity();
@@ -696,6 +714,8 @@
         createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue((t.minutes||0)/60)}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
       });
       renderSlotGrid(data.slots || []);
+      const activeRule = (window.standardCapacityRules || []).find(item => weekSortKey(item.year, item.week) === window.activeStandardRuleKey);
+      if (activeRule) renderSlotGrid(slotsObjectToList(activeRule.slots));
       (data.exceptions||[]).forEach(e=> {
         const rowId = `exception-row-${++taskRowIndex}`;
         createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
@@ -721,6 +741,7 @@
     window.reservedCapacityByDate = {};
     window.weeklyCapacityOverrides = [];
     window.standardCapacityRules = [];
+    window.activeStandardRuleKey = 0;
 
     function isTaskDone(task){ return !!(window.completedTaskKeys && window.completedTaskKeys.has(task.__originalKey)); }
     function getTaskPriority(task){ return Math.min(3, Math.max(1, parseInt(task.importance)||1)); }
@@ -969,10 +990,14 @@
     document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
     document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 
-    document.addEventListener('input', renderMonthView);
+    document.addEventListener('input', e => {
+      if (e.target.closest('#slots')) syncActiveStandardFromSlots();
+      renderMonthView();
+    });
     document.addEventListener('change', e => {
       const hoursInput = e.target.closest('.input-hours');
       if (hoursInput) sanitizeHourInput(hoursInput);
+      if (e.target.closest('#slots')) syncActiveStandardFromSlots();
       renderMonthView();
     });
     window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView();
@@ -1043,6 +1068,7 @@
       localStorage.setItem('lernplan_autosave_exceptions', JSON.stringify([...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value }))));
       localStorage.setItem('lernplan_autosave_overrides', JSON.stringify(getOverridesFromUI()));
       localStorage.setItem('lernplan_autosave_standard_rules', JSON.stringify(window.standardCapacityRules || []));
+      localStorage.setItem('lernplan_autosave_active_standard_key', String(window.activeStandardRuleKey || 0));
     }); }
     enableAutoSave();
 
