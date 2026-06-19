@@ -1,0 +1,45 @@
+{
+  "formatVersion": 2,
+  "savedAt": "2026-06-15",
+  "exportedAt": "15.06.2026, 09:00:00",
+  "source": "standalone-html-demo",
+  "tasks": [
+    {
+      "_id": "demo-montag-praesentation",
+      "createdAt": "2026-06-15",
+      "title": "Demo: Montag gespeicherte Aufgabe",
+      "hours": 5,
+      "minutes": 300,
+      "deadline": "2026-06-24",
+      "importance": 2
+    }
+  ],
+  "slots": [
+    { "day": "Montag", "hours": 1 },
+    { "day": "Dienstag", "hours": 1 },
+    { "day": "Mittwoch", "hours": 1 },
+    { "day": "Donnerstag", "hours": 1 },
+    { "day": "Freitag", "hours": 1 }
+  ],
+  "exceptions": [],
+  "overrides": [],
+  "capacityVersions": [
+    {
+      "validFrom": "2026-06-15",
+      "slots": [
+        { "day": "Montag", "hours": 1 },
+        { "day": "Dienstag", "hours": 1 },
+        { "day": "Mittwoch", "hours": 1 },
+        { "day": "Donnerstag", "hours": 1 },
+        { "day": "Freitag", "hours": 1 }
+      ]
+    }
+  ],
+  "planSnapshots": {},
+  "taskDateOverrides": {},
+  "completedTaskKeys": [],
+  "completedTaskItems": {},
+  "archivedTasks": [],
+  "reservedCapacityByDate": {},
+  "month": "2026-06"
+}

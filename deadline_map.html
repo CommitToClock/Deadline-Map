@@ -420,17 +420,25 @@ if (Number.isNaN(date.getTime())) return '';
 date.setHours(0,0,0,0);
 return toLocalISO(date);
 };
+const parseGermanDateValue = value => {
+const match = String(value || '').match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+if (!match) return '';
+return normalizeDateValue(`${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`);
+};
+const normalizeStoredDateValue = value => normalizeDateValue(value) || parseGermanDateValue(value);
 const getLegacyTaskKey = task => task.archiveKey || `${task.title||''}|${task.deadline||''}|${task.importance||1}|${task.originalMinutes || task.minutes || 0}`;
 const inferTaskId = task => task && (task._id || task.taskKey || getLegacyTaskKey(task)) || createStableId();
 const isUnitId = value => typeof value === 'string' && value.includes('::');
-const inferTaskCreatedAt = task => {
-const explicitDate = normalizeDateValue(task && task.createdAt);
+const inferTaskCreatedAt = (task, fallbackDate = '') => {
+const explicitDate = normalizeStoredDateValue(task && (task.createdAt || task.created_at || task.addedAt || task.added_at));
 if (explicitDate) return explicitDate;
 const rawId = Number(task && task._id);
 if (Number.isFinite(rawId) && rawId > 100000000000) {
 const inferredDate = normalizeDateValue(rawId);
 if (inferredDate) return inferredDate;
 }
+const fallback = normalizeStoredDateValue(fallbackDate);
+if (fallback) return fallback;
 return toLocalISO(new Date());
 };
 const isScheduledResult = item => item.status === 'assigned' || item.status === 'late-assigned';
@@ -683,7 +691,8 @@ if(available>0) calendar.push({date:ds,remaining:available,day:dayNames[new Date
 const unscheduled = [];
 backlog.forEach(entry => {
 let assigned = false;
-for (const day of calendar) {
+for (let dayIndex = calendar.length - 1; dayIndex >= 0; dayIndex--) {
+const day = calendar[dayIndex];
 if (day.remaining < UNIT_MINUTES) continue;
 if (day.date < entry.taskCreatedAt) continue;
 if (new Date(day.date) >= new Date(entry.task.deadline)) continue;
@@ -854,6 +863,7 @@ importance: Number(task.importance) || 1
 }));
 return {
 formatVersion: 2,
+savedAt: toLocalISO(new Date()),
 exportedAt: new Date().toLocaleString('de-DE'),
 source: 'standalone-html',
 tasks,
@@ -897,6 +907,7 @@ planSnapshots: sanitizedSnapshots
 }
 function fillFormData(data){
 data = sanitizeRuntimeState(data);
+const fallbackCreatedAt = normalizeStoredDateValue(data.savedAt) || normalizeStoredDateValue(data.exportedAt);
 document.getElementById('tasks').innerHTML='';
 document.getElementById('slots').innerHTML='';
 document.getElementById('exceptions').innerHTML='';
@@ -914,7 +925,7 @@ const prio = Math.min(3, Math.max(1, Number(t.importance||1)));
 const rowId = `task-row-${++taskRowIndex}`;
 const row = createRow('tasks', `<input class="t-title input-task-name" type="text" id="${rowId}-title" value="${t.title || ''}" placeholder="Aufgabe" aria-label="Aufgabe" title="Aufgabe"><label for="${rowId}-hours" class="stunden-label">Aufwand (h):</label><input class="t-hrs input-hours" id="${rowId}-hours" type="number" min="0" max="99.75" step="0.25" value="${formatHoursValue(normalizeTaskHours(t))}" placeholder="0" aria-label="Aufwand in Stunden" title="Aufwand in Stunden"><label for="${rowId}-deadline" class="deadline-label">Deadline:</label><input class=\"t-dl input-date\" id=\"${rowId}-deadline\" type=\"date\" min=\"${getTodayValue()}\" value=\"${t.deadline || ''}\" placeholder=\"Deadline\" aria-label=\"Deadline\" title=\"Deadline\"><div class=\"prio-container\"><span class=\"prio-label\">Prio:</span><button type=\"button\" class=\"prio-btn${prio===1?' active':''}\" data-priority=\"1\">!</button><button type=\"button\" class=\"prio-btn${prio===2?' active':''}\" data-priority=\"2\">!!</button><button type=\"button\" class=\"prio-btn${prio===3?' active':''}\" data-priority=\"3\">!!!</button></div><input class=\"t-imp\" type=\"hidden\" value=\"${prio}\"><div class=\"progress-container\"></div><div class=\"danger-badge\"></div>`);
 row.dataset.taskId = inferTaskId(t);
-row.dataset.createdAt = inferTaskCreatedAt(t);
+row.dataset.createdAt = inferTaskCreatedAt(t, fallbackCreatedAt);
 });
 const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
 renderSlotGrid(currentSlots);
@@ -931,7 +942,6 @@ currentMonthDate.setDate(1);
 function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); }
 function saveData(){ persistData(); alert('Daten gespeichert.'); }
 function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
-function loadSavedDataOnStart(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved) return false; try { fillFormData(JSON.parse(saved)); return true; } catch(e) { return false; } }
 function exportData(){ const blob = new Blob([JSON.stringify(buildTransferPayload(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
 function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
 function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
@@ -1250,7 +1260,7 @@ renderMonthView();
 persistData();
 });
 let suppressTaskToggleUntil = 0;
-window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); if(!loadSavedDataOnStart()) renderSlotGrid(getSlotsFromUI()); renderArchive(); renderMonthView(); persistData();
+window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid([]);
 const calendarContainer = document.getElementById('month-calendar');
 if (calendarContainer){
 calendarContainer.addEventListener('click', e => {
