@@ -200,11 +200,13 @@ flex-shrink: 0;
 .field-group{display:flex;align-items:center;gap:6px;min-width:0;}
 .field-group label{font-size:0.82rem;font-weight:600;white-space:nowrap;color:#1e293b;}
 #slots{display:grid;grid-template-columns:repeat(7,minmax(68px,1fr));gap:4px;align-items:stretch;}
+#current-slots{display:grid;grid-template-columns:repeat(7,minmax(68px,1fr));gap:4px;align-items:stretch;}
 .slot-row.card{display:flex;align-items:center;justify-content:center;gap:3px;margin-bottom:0;overflow:visible;padding:3px 4px;text-align:center;border:1px solid var(--border);border-radius:8px;background:#f8fafc;}
 .slot-day-label{font-weight:800;font-size:0.66rem;letter-spacing:0.04em;text-transform:uppercase;color:#475569;}
 .slot-input-label{display:none;}
 .slot-input-wrap{display:flex;align-items:center;justify-content:center;gap:2px;}
 .slot-row input[type="number"]{width:3rem !important;min-width:3rem !important;max-width:3rem;text-align:center;padding:0.28rem 0.2rem;}
+.slot-row-current input[type="number"]{background:#eef2ff;border-color:#c7d2fe;color:#1e293b;}
 .slot-unit{display:none;}
 .form-error{display:none;margin:0 0 8px;padding:8px 10px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:0.84rem;font-weight:700;}
 .form-error.visible{display:block;}
@@ -336,7 +338,7 @@ section.card-panel{padding:0.9rem;}
 .week-number{padding:0.6rem;}
 .day-cell{min-height:88px;}
 .task-block{flex-direction:column;align-items:flex-start;}
-#slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
+#slots,#current-slots{grid-template-columns:repeat(4,minmax(76px,1fr));}
 .archive-row{grid-template-columns:1fr;gap:3px;}
 .archive-meta-group{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;}
 }
@@ -359,7 +361,7 @@ section.card-panel{padding:0.9rem;}
 .legend-item{padding:0.45rem 0.75rem;}
 .task-block{padding:8px 10px;}
 .toolbar > .btn{width:100%;}
-#slots{grid-template-columns:repeat(2,minmax(0,1fr));}
+#slots,#current-slots{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 </style>
 </head>
@@ -398,6 +400,13 @@ section.card-panel{padding:0.9rem;}
 </section>
 <section class="card-panel tab-content" id="capacity-panel" data-tab="capacity">
 <p class="section-description">Standard-Lernzeit pro Wochentag in Stunden</p>
+<p class="section-description">Aktuell gültig (ab heute)</p>
+<div id="current-slots"></div>
+<p class="section-description">Neue Werte für die Zukunft</p>
+<div class="field-group" id="capacity-week-control">
+<label for="capacity-valid-week">Neue Werte gelten ab KW</label>
+<input id="capacity-valid-week" type="week" aria-label="Kapazität gilt ab Kalenderwoche">
+</div>
 <div id="slots-error" class="form-error" role="alert"></div>
 <div id="slots"></div>
 </section>
@@ -457,6 +466,37 @@ const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
 const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 return [d.getUTCFullYear(), weekNo];
 }
+function getWeekValueFromDate(dateValue) {
+const date = dateValue ? new Date(dateValue) : new Date();
+if (Number.isNaN(date.getTime())) return getWeekValueFromDate();
+const [year, week] = getWeekNumber(date);
+return `${year}-W${String(week).padStart(2, '0')}`;
+}
+function getIsoDateFromWeekValue(weekValue) {
+const match = String(weekValue || '').match(/^(\d{4})-W(\d{2})$/);
+if (!match) return toLocalISO(new Date());
+const year = Number(match[1]);
+const week = Number(match[2]);
+const jan4 = new Date(Date.UTC(year, 0, 4));
+const jan4Day = jan4.getUTCDay() || 7;
+const monday = new Date(jan4);
+monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + (week - 1) * 7);
+return toLocalISO(new Date(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate()));
+}
+function getWeekStartISO(dateValue) {
+const date = dateValue ? new Date(dateValue) : new Date();
+if (Number.isNaN(date.getTime())) return getWeekStartISO();
+const day = date.getDay();
+const diffToMonday = day === 0 ? -6 : 1 - day;
+date.setDate(date.getDate() + diffToMonday);
+date.setHours(0,0,0,0);
+return toLocalISO(date);
+}
+function getCapacityEditorValidFrom() {
+const weekInput = document.getElementById('capacity-valid-week');
+if (!weekInput || !weekInput.value) return toLocalISO(new Date());
+return getIsoDateFromWeekValue(weekInput.value);
+}
 function isException(dateStr) {
 return (window.exceptions || []).some(e => dateStr >= e.from && dateStr <= e.to);
 }
@@ -476,29 +516,98 @@ return weekdays.map(day => ({ day, hours: map.get(day) || 0 })).filter(slot => s
 function slotsSignature(slots = []) {
 return normalizeSlotsList(slots).map(slot => `${slot.day}:${slot.hours}`).join('|');
 }
+function normalizeCapacityVersions(versions = []) {
+const byWeek = new Map();
+const sorted = [...(versions || [])].sort((a, b) => String(a.validFrom || '').localeCompare(String(b.validFrom || '')));
+sorted.forEach(version => {
+if (!version || !version.validFrom) return;
+const weekStart = getWeekStartISO(version.validFrom);
+byWeek.set(weekStart, { validFrom: weekStart, slots: normalizeSlotsList(version.slots || []) });
+});
+return [...byWeek.values()].sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+}
+function compactCapacityVersions(versions = []) {
+const sorted = [...(versions || [])].sort((a, b) => String(a.validFrom || '').localeCompare(String(b.validFrom || '')));
+const compacted = [];
+for (const version of sorted) {
+if (!version || !version.validFrom) continue;
+if (!compacted.length) {
+compacted.push(version);
+continue;
+}
+const prev = compacted[compacted.length - 1];
+if (slotsSignature(prev.slots) !== slotsSignature(version.slots)) compacted.push(version);
+}
+return compacted;
+}
+function computeSlotsForDateFromVersions(versions = [], dateStr = '') {
+const normalizedVersions = normalizeCapacityVersions(versions);
+const applicable = [...normalizedVersions]
+.filter(version => version.validFrom && version.validFrom <= dateStr)
+.sort((a, b) => b.validFrom.localeCompare(a.validFrom));
+if (applicable[0]) return normalizeSlotsList(applicable[0].slots || []);
+const firstVersion = [...normalizedVersions].sort((a, b) => a.validFrom.localeCompare(b.validFrom))[0];
+return normalizeSlotsList(firstVersion?.slots || []);
+}
+function initializePastCapacityBaseline(force = false) {
+if (!force && window.pastCapacityBaselineInitialized) return;
+const currentWeekStart = getWeekStartISO(toLocalISO(new Date()));
+const previousDay = new Date(currentWeekStart);
+previousDay.setDate(previousDay.getDate() - 1);
+const previousDate = toLocalISO(previousDay);
+const fromVersions = computeSlotsForDateFromVersions(window.capacityVersions || [], previousDate);
+if (fromVersions.length) {
+window.pastCapacityBaseline = fromVersions;
+window.pastCapacityBaselineInitialized = true;
+return;
+}
+const currentSlotsFromUI = normalizeSlotsList(getCurrentSlotsFromUI());
+if (currentSlotsFromUI.length) {
+window.pastCapacityBaseline = currentSlotsFromUI;
+window.pastCapacityBaselineInitialized = true;
+return;
+}
+window.pastCapacityBaseline = normalizeSlotsList(getSlotsFromUI());
+window.pastCapacityBaselineInitialized = true;
+}
 function getSlotsForDate(dateStr) {
+window.capacityVersions = normalizeCapacityVersions(window.capacityVersions || []);
 const versions = [...(window.capacityVersions || [])]
 .filter(version => version.validFrom && version.validFrom <= dateStr)
 .sort((a, b) => b.validFrom.localeCompare(a.validFrom));
 if (versions[0]) return normalizeSlotsList(versions[0].slots || []);
+const currentWeekStart = getWeekStartISO(toLocalISO(new Date()));
+if (dateStr < currentWeekStart && window.pastCapacityBaselineInitialized) {
+return normalizeSlotsList(window.pastCapacityBaseline);
+}
 const firstVersion = [...(window.capacityVersions || [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom))[0];
 return normalizeSlotsList(firstVersion?.slots || getSlotsFromUI());
 }
-function ensureCapacityVersion(slots) {
-const todayStr = toLocalISO(new Date());
+function ensureCapacityVersion(slots, validFromDate = getCapacityEditorValidFrom(), options = {}) {
+const { cascadeForward = true } = options;
+const validFrom = getWeekStartISO(normalizeDateValue(validFromDate) || toLocalISO(new Date()));
 const normalized = normalizeSlotsList(slots);
-window.capacityVersions = Array.isArray(window.capacityVersions) ? window.capacityVersions : [];
+window.capacityVersions = normalizeCapacityVersions(Array.isArray(window.capacityVersions) ? window.capacityVersions : []);
 if (!window.capacityVersions.length) {
-window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+const currentWeekStart = getWeekStartISO(toLocalISO(new Date()));
+window.capacityVersions.push({ validFrom: currentWeekStart, slots: normalized });
 return;
 }
 window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
-const latest = window.capacityVersions[window.capacityVersions.length - 1];
-if (slotsSignature(latest.slots) === slotsSignature(normalized)) return;
-const todayVersion = window.capacityVersions.find(version => version.validFrom === todayStr);
-if (todayVersion) todayVersion.slots = normalized;
-else window.capacityVersions.push({ validFrom: todayStr, slots: normalized });
+const effectiveAtStart = getSlotsForDate(validFrom);
+if (slotsSignature(effectiveAtStart) === slotsSignature(normalized)) return;
+const selectedVersion = window.capacityVersions.find(version => version.validFrom === validFrom);
+if (selectedVersion) {
+selectedVersion.slots = normalized;
+}
+else window.capacityVersions.push({ validFrom, slots: normalized });
+if (cascadeForward) {
+window.capacityVersions = window.capacityVersions.map(version => (
+version.validFrom >= validFrom ? { ...version, slots: normalized } : version
+));
+}
 window.capacityVersions.sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+window.capacityVersions = compactCapacityVersions(window.capacityVersions);
 }
 function freezePlanItem(item) {
 return {
@@ -772,20 +881,25 @@ return Number.isInteger(normalized) ? String(normalized) : String(normalized);
 function sanitizeHourInput(input){
 input.value = formatHoursValue(normalizeHoursValue(input.value));
 }
-function renderSlotGrid(slots = []){
+function renderSlotGrid(slots = [], options = {}){
+const {
+containerId = 'slots',
+editable = true,
+hoursClass = 's-hrs'
+} = options;
 const slotValues = new Map((slots || []).map(slot => [slot.day, slot.hours]));
-const container = document.getElementById('slots');
+const container = document.getElementById(containerId);
 if (!container) return;
 container.innerHTML = '';
 weekdays.forEach((day, index) => {
 const rowId = `slot-${day.toLowerCase()}`;
 const div = document.createElement('div');
-div.className = 'slot-row card';
+div.className = `slot-row card ${editable ? 'slot-row-future' : 'slot-row-current'}`;
 div.innerHTML = `
          <label class="slot-day-label" for="${rowId}-hours" title="${day}">${weekdayShort[index]}</label>
          <span class="slot-input-label">Lernzeit</span>
          <input class="s-day" type="hidden" value="${day}">
-         <div class="slot-input-wrap"><input class="s-hrs input-hours" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slotValues.get(day) || 0)}" placeholder="0" aria-label="Stunden am ${day}" title="Stunden am ${day}"><span class="slot-unit">h</span></div>
+         <div class="slot-input-wrap"><input class="${hoursClass} ${editable ? 'input-hours' : ''}" id="${rowId}-hours" type="number" step="0.25" min="0" max="99.75" value="${formatHoursValue(slotValues.get(day) || 0)}" placeholder="0" aria-label="Stunden am ${day}" title="Stunden am ${day}" ${editable ? '' : 'readonly tabindex="-1"'}><span class="slot-unit">h</span></div>
        `;
 container.appendChild(div);
 });
@@ -838,7 +952,8 @@ importance: r.querySelector('.t-imp').value
 }
 function getTasksFromUI(){ return [...document.querySelectorAll('.task-row')].map(r=>({ _id: r.dataset.taskId || createStableId(), createdAt: normalizeDateValue(r.dataset.createdAt) || toLocalISO(new Date()), title: r.querySelector('.t-title').value, minutes: normalizeHoursValue(r.querySelector('.t-hrs').value||0)*60, deadline: r.querySelector('.t-dl').value, importance: r.querySelector('.t-imp').value })).filter(t=>t.title && t.deadline); }
 function getStoredTasksFromUI(){ return readTaskRows(true).map(task => ({ ...task, minutes: Math.round(task.hours * 60) })); }
-function getSlotsFromUI(){ return [...document.querySelectorAll('.slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
+function getSlotsFromUI(){ return [...document.querySelectorAll('#slots .slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
+function getCurrentSlotsFromUI(){ return [...document.querySelectorAll('#current-slots .slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs-current').value||0) })).filter(s=>s.hours>0); }
 function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
 function validateSlotRows(){
 const error = document.getElementById('slots-error');
@@ -877,6 +992,8 @@ completedTaskKeys: [...(window.completedTaskKeys || new Set())],
 completedTaskItems: window.completedTaskItems || {},
 archivedTasks: window.archivedTasks || [],
 reservedCapacityByDate: window.reservedCapacityByDate || {},
+capacityEditorWeek: document.getElementById('capacity-valid-week')?.value || getWeekValueFromDate(),
+pastCapacityBaseline: window.pastCapacityBaseline || [],
 month: currentMonthDate.toISOString().slice(0,7)
 };
 }
@@ -913,11 +1030,19 @@ document.getElementById('slots').innerHTML='';
 document.getElementById('exceptions').innerHTML='';
 window.archivedTasks = Array.isArray(data.archivedTasks) ? data.archivedTasks : [];
 window.reservedCapacityByDate = data.reservedCapacityByDate && typeof data.reservedCapacityByDate === 'object' ? data.reservedCapacityByDate : {};
-window.capacityVersions = Array.isArray(data.capacityVersions) ? data.capacityVersions.map(version => ({ validFrom: version.validFrom, slots: normalizeSlotsList(version.slots || []) })).filter(version => version.validFrom) : [];
+window.capacityVersions = normalizeCapacityVersions(Array.isArray(data.capacityVersions) ? data.capacityVersions : []);
+window.pastCapacityBaseline = normalizeSlotsList(Array.isArray(data.pastCapacityBaseline) ? data.pastCapacityBaseline : []);
+window.pastCapacityBaselineInitialized = Array.isArray(data.pastCapacityBaseline);
 window.planSnapshots = data.planSnapshots && typeof data.planSnapshots === 'object' ? data.planSnapshots : {};
 window.taskDateOverrides = data.taskDateOverrides && typeof data.taskDateOverrides === 'object' ? data.taskDateOverrides : {};
 window.completedTaskKeys = new Set(Array.isArray(data.completedTaskKeys) ? data.completedTaskKeys : []);
 window.completedTaskItems = data.completedTaskItems && typeof data.completedTaskItems === 'object' ? data.completedTaskItems : {};
+const weekInput = document.getElementById('capacity-valid-week');
+if (weekInput) {
+weekInput.min = getWeekValueFromDate();
+weekInput.value = data.capacityEditorWeek || getWeekValueFromDate();
+}
+initializePastCapacityBaseline();
 pruneArchivedTasks();
 pruneReservedCapacity();
 (data.tasks||[]).forEach(t=> {
@@ -927,9 +1052,10 @@ const row = createRow('tasks', `<input class="t-title input-task-name" type="tex
 row.dataset.taskId = inferTaskId(t);
 row.dataset.createdAt = inferTaskCreatedAt(t, fallbackCreatedAt);
 });
-const currentSlots = window.capacityVersions.length ? getSlotsForDate(toLocalISO(new Date())) : (data.slots || []);
-renderSlotGrid(currentSlots);
-ensureCapacityVersion(getSlotsFromUI());
+const currentSlots = window.capacityVersions.length ? getSlotsForDate(getCapacityEditorValidFrom()) : (data.slots || []);
+renderSlotGrid(getSlotsForDate(toLocalISO(new Date())), { containerId: 'current-slots', editable: true, hoursClass: 's-hrs-current' });
+renderSlotGrid(currentSlots, { containerId: 'slots', editable: true, hoursClass: 's-hrs' });
+ensureCapacityVersion(getSlotsFromUI(), getCapacityEditorValidFrom(), { cascadeForward: false });
 (data.exceptions||[]).forEach(e=> {
 const rowId = `exception-row-${++taskRowIndex}`;
 createRow('exceptions', `<input class="e-name input-task-name" type="text" id="${rowId}-name" value="${e.name}" placeholder="Grund für Ausnahme" aria-label="Grund für Ausnahme" title="Grund für Ausnahme"><label for="${rowId}-from" class="deadline-label">von</label><input class="e-from input-date" id="${rowId}-from" type="date" min="${getTodayValue()}" value="${e.from}" placeholder="Von" aria-label="Von" title="Von"><label for="${rowId}-to" class="deadline-label">bis</label><input class="e-to input-date" id="${rowId}-to" type="date" min="${getTodayValue()}" value="${e.to}" placeholder="Bis" aria-label="Bis" title="Bis">`);
@@ -956,6 +1082,8 @@ window.archivedTasks = [];
 window.reservedCapacityByDate = {};
 window.capacityVersions = [];
 window.planSnapshots = {};
+window.pastCapacityBaseline = [];
+window.pastCapacityBaselineInitialized = false;
 
 function isTaskDone(task){
 const unitIds = Array.isArray(task?.unitIds) && task.unitIds.length
@@ -1082,15 +1210,14 @@ return tb;
 
 function renderMonthView(){
 const tasks = getTasksFromUI();
-const slots = getSlotsFromUI();
 const exceptions = getExceptionsFromUI();
 pruneReservedCapacity();
 validateSlotRows();
-ensureCapacityVersion(slots);
+renderSlotGrid(getSlotsForDate(toLocalISO(new Date())), { containerId: 'current-slots', editable: true, hoursClass: 's-hrs-current' });
 window.exceptions = exceptions;
 
 const schedulableTasks = tasks;
-const scheduleResult = schedule(schedulableTasks, slots, exceptions, getLockedMovedItems());
+const scheduleResult = schedule(schedulableTasks);
 const results = scheduleResult.items.map((item, index) => ({ ...item, id: `plan-${index}` }));
 window.plan = results;
 window.planUnitMap = scheduleResult.unitMap;
@@ -1248,19 +1375,55 @@ btn.addEventListener('mouseleave', ()=> { toolbarTooltip.textContent = 'Hover ü
 
 document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
 document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
+const capacityWeekInput = document.getElementById('capacity-valid-week');
+if (capacityWeekInput) {
+capacityWeekInput.addEventListener('change', () => {
+if (capacityWeekInput.min && capacityWeekInput.value < capacityWeekInput.min) capacityWeekInput.value = capacityWeekInput.min;
+renderSlotGrid(getSlotsForDate(toLocalISO(new Date())), { containerId: 'current-slots', editable: true, hoursClass: 's-hrs-current' });
+renderSlotGrid(getSlotsForDate(getCapacityEditorValidFrom()), { containerId: 'slots', editable: true, hoursClass: 's-hrs' });
+renderMonthView();
+persistData();
+});
+}
 
 document.addEventListener('input', e => {
+const isCurrentSlotEdit = !!e.target.closest('#current-slots .s-hrs-current');
+const isFutureSlotEdit = !!e.target.closest('#slots .s-hrs');
+if (isCurrentSlotEdit) {
+ensureCapacityVersion(getCurrentSlotsFromUI(), getWeekStartISO(toLocalISO(new Date())), { cascadeForward: true });
+renderSlotGrid(getSlotsForDate(getCapacityEditorValidFrom()), { containerId: 'slots', editable: true, hoursClass: 's-hrs' });
+}
+if (isFutureSlotEdit) {
+ensureCapacityVersion(getSlotsFromUI(), getCapacityEditorValidFrom(), { cascadeForward: true });
+}
 renderMonthView();
 persistData();
 });
 document.addEventListener('change', e => {
 const hoursInput = e.target.closest('.input-hours');
 if (hoursInput) sanitizeHourInput(hoursInput);
+const isCurrentSlotEdit = !!e.target.closest('#current-slots .s-hrs-current');
+const isFutureSlotEdit = !!e.target.closest('#slots .s-hrs');
+if (isCurrentSlotEdit) {
+ensureCapacityVersion(getCurrentSlotsFromUI(), getWeekStartISO(toLocalISO(new Date())), { cascadeForward: true });
+renderSlotGrid(getSlotsForDate(getCapacityEditorValidFrom()), { containerId: 'slots', editable: true, hoursClass: 's-hrs' });
+}
+if (isFutureSlotEdit) {
+ensureCapacityVersion(getSlotsFromUI(), getCapacityEditorValidFrom(), { cascadeForward: true });
+}
 renderMonthView();
 persistData();
 });
 let suppressTaskToggleUntil = 0;
-window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode(); renderSlotGrid([]);
+window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode();
+const capacityWeekInputOnLoad = document.getElementById('capacity-valid-week');
+if (capacityWeekInputOnLoad) {
+capacityWeekInputOnLoad.min = getWeekValueFromDate();
+if (!capacityWeekInputOnLoad.value) capacityWeekInputOnLoad.value = getWeekValueFromDate();
+}
+initializePastCapacityBaseline();
+renderSlotGrid(getSlotsForDate(toLocalISO(new Date())), { containerId: 'current-slots', editable: true, hoursClass: 's-hrs-current' });
+renderSlotGrid(getSlotsForDate(getCapacityEditorValidFrom()), { containerId: 'slots', editable: true, hoursClass: 's-hrs' });
 const calendarContainer = document.getElementById('month-calendar');
 if (calendarContainer){
 calendarContainer.addEventListener('click', e => {
