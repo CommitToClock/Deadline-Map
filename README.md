@@ -143,6 +143,18 @@ Die Hauptansicht unter `/` ist die Standalone-App in `deadline_map.html`. Dort g
 	Offene geplante Eintraege vor dem aktuellen Tag werden im Hinweisblock
 	"Nicht erledigte Slots in der Vergangenheit" zusammengefasst.
 
+8. **Schwellenwerte der Auslastungsfarben**
+	Die Farbstufe folgt der Auslastung pro Tag: unter 50% = `util-low`,
+	ab 50% = `util-medium`, ab 100% = `util-full`, ueber 100% = `util-over`.
+
+9. **Sonderfall: Kein verfuegbarer Slot**
+	Wenn die Tageskapazitaet 0 ist, aber Aufgaben auf dem Tag liegen,
+	wird der Tag als ueberlastet markiert und mit "Kein verfuegbarer Slot" gekennzeichnet.
+
+10. **Ausnahmetage haben Vorrang**
+	Liegt ein Datum in einem Ausnahmezeitraum, wird der Tag als `exception-day`
+	markiert und entsprechend hervorgehoben.
+
 ### Farbstatus im Kalender (Kurzuebersicht)
 
 | Status | Bedeutung | CSS-Klasse |
