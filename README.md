@@ -6,6 +6,80 @@ Intelligente Lern- und Deadlineplanung mit Kapazitätsabgleich. Plane deine Aufg
 
 **Live:** https://deadline-map.onrender.com/
 
+## Quick Start
+
+In weniger als 1 Minute lokal starten:
+
+```bash
+npm install
+npm run dev
+```
+
+Danach im Browser oeffnen: `http://localhost:5173`
+
+Optional fuer Production-Check:
+
+```bash
+npm run build
+npm run preview
+```
+
+## Warum dieses Tool?
+
+Viele ToDo-Apps verwalten nur Listen. Deadline Map optimiert zusaetzlich die **Zeitverteilung**:
+
+- Automatische Verteilung von Aufgaben auf konkrete Tage
+- Abgleich zwischen benoetigter Arbeit und realer Tageskapazitaet
+- Fruehe Ueberlastungswarnung statt spaeter Deadline-Stress
+- Beruecksichtigung von Ausnahmen (z. B. Urlaub, Krankheit, Feiertage)
+- Fokus auf Lern- und Pruefungsplanung statt allgemeiner Aufgabenverwaltung
+
+## Demo
+
+Hier sollte ein kurzes GIF/Screenshot eingebunden sein, das zeigt:
+
+1. Aufgabe anlegen
+2. Stunden + Deadline setzen
+3. Automatische Aktualisierung des Plans
+
+Empfohlener Pfad fuer die Datei:
+
+`docs/assets/deadline-map-demo.gif`
+
+Einbindung in diese README:
+
+```md
+![Deadline Map Demo](docs/assets/deadline-map-demo.gif)
+```
+
+### GIF-Aufnahme in 3 Szenen (Windows)
+
+Empfohlenes Tool: **ScreenToGif** (kostenlos).
+
+1. **Szene 1 (Aufgabe anlegen, ca. 5-7s)**
+	Formular oeffnen, Titel + Stunden + Deadline eintragen, speichern.
+2. **Szene 2 (Kapazitaet setzen, ca. 4-6s)**
+	Einen Wochentag anpassen, damit sichtbare freie Zeit entsteht.
+3. **Szene 3 (Auto-Update zeigen, ca. 4-6s)**
+	Plan neu berechnen und den aktualisierten Kalender kurz im Fokus halten.
+
+Empfohlene Aufnahme-/Export-Settings:
+
+- FPS: `12-15`
+- Breite: `1200px` (oder kleiner, falls Datei zu gross wird)
+- Zielgroesse: unter `8 MB`
+- Loop: unendlich
+
+Datei speichern als:
+
+`docs/assets/deadline-map-demo.gif`
+
+Optional (wenn du lieber MP4 nutzt):
+
+```md
+<video src="docs/assets/deadline-map-demo.mp4" controls width="100%"></video>
+```
+
 ## Wie nutzt man das Projekt?
 
 1. **Aufgaben erfassen**: Gib Aufgaben, benötigte Stunden und Deadlines ein.
@@ -29,19 +103,26 @@ Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortier
 
 | | |
 |---|---|
+| [Quick Start](#quick-start) | In 60 Sekunden starten |
+| [Warum dieses Tool?](#warum-dieses-tool) | USP und Mehrwert |
+| [Demo](#demo) | Screenshot/GIF |
 | [Tech-Stack](#tech-stack) | Welche Technologien? |
 | [Installation](#installation) | Lokal starten |
 | [Erste Schritte](#erste-schritte) | Schritt-für-Schritt Setup |
 | [Projektstruktur](#projektstruktur) | Wie ist der Code aufgebaut? |
 | [Features](#features) | Was kann die App alles? |
+| [Roadmap](#roadmap) | Naechste Schritte |
 | [Deployment](#deployment) | Live im Internet |
 
 ## Tech-Stack
 
-- **Frontend**: Vue 3 + Vite + Tailwind CSS
-- **Backend**: Node.js + Express
-- **Speicher**: Browser LocalStorage + JSON-Export/Import
-- **Entwicklung**: HTML, CSS, JavaScript
+| Bereich | Technologie |
+|---|---|
+| Frontend | Vue 3, Vite, Tailwind CSS |
+| Backend | Node.js, Express |
+| Persistenz | Browser LocalStorage, JSON Export/Import |
+| Sprache | HTML, CSS, JavaScript |
+| Hosting | Render |
 
 Hinweis: Die aktuell ausgelieferte Hauptansicht unter `/` ist `deadline_map.html`.
 
@@ -168,6 +249,16 @@ Die Hauptansicht unter `/` ist die Standalone-App in `deadline_map.html`. Dort g
 | Grau | Vergangener Tag mit historischer Reservierung | `historical-filled` |
 
 Technische Referenz der Styles: `deadline_map.html` (Klassen im Bereich der `.day-cell`-Zustaende).
+
+## Roadmap
+
+Geplante naechste Schritte (Stand heute):
+
+- Google Calendar Sync (Import/Export relevanter Lernslots)
+- Verbesserte mobile Ansicht fuer kleine Displays
+- Optionaler Wochen-Optimierer mit Fokuszeiten
+- Kollaborative Planung (z. B. Lerngruppen)
+- Weitere Exportformate (PDF/ICS)
 
 ## Deployment
 
