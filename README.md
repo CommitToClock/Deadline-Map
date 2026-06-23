@@ -6,24 +6,6 @@ Intelligente Lern- und Deadlineplanung mit Kapazitätsabgleich. Plane deine Aufg
 
 **Live:** https://deadline-map.onrender.com/
 
-## Quick Start
-
-In weniger als 1 Minute lokal starten:
-
-```bash
-npm install
-npm run dev
-```
-
-Danach im Browser oeffnen: `http://localhost:5173`
-
-Optional fuer Production-Check:
-
-```bash
-npm run build
-npm run preview
-```
-
 ## Warum dieses Tool?
 
 Viele ToDo-Apps verwalten nur Listen. Deadline Map optimiert zusaetzlich die **Zeitverteilung**:
@@ -57,14 +39,11 @@ Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortier
 
 | | |
 |---|---|
-| [Quick Start](#quick-start) | In 60 Sekunden starten |
-| [Warum dieses Tool?](#warum-dieses-tool) | USP und Mehrwert |
 | [Tech-Stack](#tech-stack) | Welche Technologien? |
 | [Installation](#installation) | Lokal starten |
 | [Erste Schritte](#erste-schritte) | Schritt-für-Schritt Setup |
 | [Projektstruktur](#projektstruktur) | Wie ist der Code aufgebaut? |
 | [Features](#features) | Was kann die App alles? |
-| [Roadmap](#roadmap) | Naechste Schritte |
 | [Deployment](#deployment) | Live im Internet |
 
 ## Tech-Stack
@@ -202,16 +181,6 @@ Die Hauptansicht unter `/` ist die Standalone-App in `deadline_map.html`. Dort g
 | Grau | Vergangener Tag mit historischer Reservierung | `historical-filled` |
 
 Technische Referenz der Styles: `deadline_map.html` (Klassen im Bereich der `.day-cell`-Zustaende).
-
-## Roadmap
-
-Geplante naechste Schritte (Stand heute):
-
-- Google Calendar Sync (Import/Export relevanter Lernslots)
-- Verbesserte mobile Ansicht fuer kleine Displays
-- Optionaler Wochen-Optimierer mit Fokuszeiten
-- Kollaborative Planung (z. B. Lerngruppen)
-- Weitere Exportformate (PDF/ICS)
 
 ## Deployment
 
