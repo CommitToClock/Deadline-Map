@@ -143,6 +143,20 @@ Die Hauptansicht unter `/` ist die Standalone-App in `deadline_map.html`. Dort g
 	Offene geplante Eintraege vor dem aktuellen Tag werden im Hinweisblock
 	"Nicht erledigte Slots in der Vergangenheit" zusammengefasst.
 
+### Farbstatus im Kalender (Kurzuebersicht)
+
+| Status | Bedeutung | CSS-Klasse |
+|---|---|---|
+| Gruen | Freie Zeit / geringe Auslastung | `free-time`, `util-low` |
+| Gelb | Teilweise belegt / mittlere Auslastung | `partial-time`, `util-medium` |
+| Orange | Nahe Vollauslastung | `util-full` |
+| Rot | Ueberlastet / kein verfuegbarer Slot | `util-over`, `overloaded` |
+| Blau-Grau | Ausnahmetag (z. B. Urlaub, Feiertag) | `exception-day` |
+| Weiss (neutral) | Vergangener Tag ohne historische Reservierung | `past-neutral` |
+| Grau | Vergangener Tag mit historischer Reservierung | `historical-filled` |
+
+Technische Referenz der Styles: `deadline_map.html` (Klassen im Bereich der `.day-cell`-Zustaende).
+
 ## Deployment
 
 Die App wird automatisch von **Render** deployt:
