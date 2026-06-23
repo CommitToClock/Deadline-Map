@@ -5,7 +5,18 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Die Render-Startseite soll die aktuelle Standalone-Version oeffnen.
+const distIndex = path.join(__dirname, 'dist', 'index.html');
+const fallbackIndex = path.join(__dirname, 'index.html');
+
+const sendSpaIndex = (res) => {
+  if (fs.existsSync(distIndex)) {
+    res.sendFile(distIndex);
+    return;
+  }
+  res.sendFile(fallbackIndex);
+};
+
+// Root liefert immer die aktuelle Standalone-Version.
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'deadline_map.html'));
 });
@@ -17,14 +28,7 @@ app.use(express.static(path.join(__dirname), { index: false }));
 
 // SPA-Fallback fuer die Vue-Version, falls andere Routen aufgerufen werden.
 app.get('*', (req, res) => {
-  const distIndex = path.join(__dirname, 'dist', 'index.html');
-  const fallbackIndex = path.join(__dirname, 'index.html');
-
-  if (fs.existsSync(distIndex)) {
-    res.sendFile(distIndex);
-  } else {
-    res.sendFile(fallbackIndex);
-  }
+  sendSpaIndex(res);
 });
 
 app.listen(PORT, () => {

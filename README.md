@@ -43,6 +43,8 @@ Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortier
 - **Speicher**: Browser LocalStorage + JSON-Export/Import
 - **Entwicklung**: HTML, CSS, JavaScript
 
+Hinweis: Die aktuell ausgelieferte Hauptansicht unter `/` ist `deadline_map.html`.
+
 ## Installation
 
 Voraussetzung: **Node.js 18+** und **npm**.
@@ -78,6 +80,8 @@ npm start
 
 Öffne: `http://localhost:3000`
 
+Der Express-Server liefert unter `/` die aktuelle Standalone-Ansicht aus `deadline_map.html`.
+
 ## Projektstruktur
 
 ```
@@ -89,7 +93,7 @@ Deadline-Map/
 │   └── components/
 │       └── ResultsSection.vue    # Ergebnisanzeige
 ├── index.html                    # HTML-Einstiegspunkt (Vue)
-├── deadline_map.html             # Standalone HTML (All-in-One)
+├── deadline_map.html             # Primärer Einstieg (aktuelle Hauptansicht)
 ├── server.js                     # Express-Server
 ├── package.json                  # Abhängigkeiten
 ├── vite.config.js                # Vite-Konfiguration
@@ -109,10 +113,53 @@ Deadline-Map/
 - ✅ JSON-Export/Import
 - ✅ Dark Mode
 
+## Aktuelles Planungsverhalten
+
+Die Hauptansicht unter `/` ist die Standalone-App in `deadline_map.html`. Dort gelten aktuell folgende Regeln:
+
+1. **Vergangenheit wird nicht neu aufgefuellt**
+	Bereits vergangene Tage werden nicht fuer neue automatische Verteilung verwendet.
+
+2. **Erledigte vergangene Slots bleiben reserviert**
+	Wenn ein Slot nachtraeglich als erledigt markiert wird, bleibt die Kapazitaet intern blockiert,
+	damit der Slot spaeter nicht mit anderen Aufgaben wieder befuellt wird.
+
+3. **Stabile Tagesbelegung bis heute**
+	Bereits geplante Einheiten bis einschliesslich heute werden beim Neuberechnen stabil gehalten,
+	damit sich nicht bei jeder kleinen Aenderung alte Tage verschieben.
+
+4. **Kapazitaetsanzeige `x/yh`**
+	Die Anzeige zeigt die **sichtbaren offenen Stunden** der Zelle (`x`) im Verhaeltnis zur Tageskapazitaet (`y`).
+	Interne Reservierungen fuer abgeschlossene Historie zaehlen nicht in `x`.
+
+5. **Farblogik fuer Vergangenheit**
+	Vergangene Tage mit historischer Reservierung koennen als `historical-filled` grau erscheinen.
+	Vergangene Tage ohne solche Reservierung erscheinen neutral/weiss.
+
+6. **Zukunftstage**
+	In Zukunftstagen bleibt `x/yh` sichtbar, auch wenn alle dort angezeigten Tasks erledigt markiert sind.
+
+7. **Warnung fuer offene Vergangenheits-Slots**
+	Offene geplante Eintraege vor dem aktuellen Tag werden im Hinweisblock
+	"Nicht erledigte Slots in der Vergangenheit" zusammengefasst.
+
 ## Deployment
 
 Die App wird automatisch von **Render** deployt:
 
 - **URL**: https://deadline-map.onrender.com/
 - **Trigger**: Jeder Push auf `main` branch
+- **Build**: `npm run build`
 - **Start**: `npm start` (Express-Server auf Port 3000)
+
+Welche Version ist live?
+
+- Unter `/` wird `deadline_map.html` ausgeliefert.
+- Die Vue-App bleibt im Projekt fuer die komponentenbasierte Weiterentwicklung erhalten.
+
+Empfohlene Render-Einstellungen
+
+- Runtime: `Node`
+- Node Version: `>=18`
+- Build Command: `npm run build`
+- Start Command: `npm start`

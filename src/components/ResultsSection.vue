@@ -45,6 +45,15 @@
       </div>
     </details>
 
+    <div v-if="pastUnfinishedItems.length > 0" class="compact-warning compact-warning-amber">
+      <strong>Nicht erledigte Slots in der Vergangenheit:</strong>
+      <ul>
+        <li v-for="item in pastUnfinishedItems" :key="`${item.date}-${item.title}`">
+          {{ formatDateDE(item.date) }} - {{ item.title }}: {{ (item.minutes / 60).toFixed(2) }}h offen
+        </li>
+      </ul>
+    </div>
+
     <div v-if="overdueItems.length > 0" class="compact-warning">
       <strong>Ueberfaellige Aufgaben:</strong>
       <ul>
@@ -150,6 +159,21 @@ const totalPlanned = computed(() =>
 
 const overdueItems = computed(() =>
   props.results?.filter(r => r.status === 'overdue') ?? []
+)
+
+const todayISO = computed(() => {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return toLocalISO(now)
+})
+
+const pastUnfinishedItems = computed(() =>
+  (props.results ?? [])
+    .filter(item => isScheduledResult(item) && item.date && item.date < todayISO.value)
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return Number(b.importance || 0) - Number(a.importance || 0)
+    })
 )
 
 const latestScheduledDate = computed(() => {

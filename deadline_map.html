@@ -58,6 +58,9 @@ section.card-panel{background:var(--card);border:1px solid var(--border);border-
 .day-cell.exception-day{background:#e2e8f0;color:#1e3a8a;border:1px solid #93c5fd}
 .day-cell.exception-day .day-number{color:#1e3a8a}
 .day-cell.exception-day .exception-label{margin-top:6px;padding:4px 8px;border-radius:999px;background:#dbeafe;color:#1e3a8a;font-size:0.8rem;font-weight:700;display:inline-block}
+.day-cell.past-neutral{background:#ffffff !important;color:#0f172a;border-color:#cbd5e1}
+.day-cell.historical-filled{background:#e5e7eb !important;color:#374151;border-color:#cbd5e1}
+.day-cell.historical-filled .day-number,.day-cell.historical-filled .capacity-info{color:#374151}
 .task-block{margin-top:6px;padding:6px 8px;border-radius:16px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border);min-height:40px;line-height:1.2}
 .day-cell .task-block{padding:4px 6px;border-radius:12px;font-size:0.74rem;min-height:auto;gap:4px;background:rgba(255,255,255,0.95);border-color:rgba(59,130,246,0.2);}
 .day-cell .task-block .task-title{font-size:0.82rem;color:var(--text)}
@@ -93,6 +96,10 @@ section.card-panel{background:var(--card);border:1px solid var(--border);border-
 .status-assigned{background:#dbf4ff;color:#0369a1}
 .status-overdue{background:#fee2e2;color:#b91c1c}
 .status-unassigned{background:#f8fafc;color:#475569}
+.past-open-warning{display:none;margin:0 0 0.65rem;padding:0.65rem 0.75rem;border-radius:0.75rem;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-size:0.85rem;font-weight:700;line-height:1.3;}
+.past-open-warning.visible{display:block;}
+.past-open-warning ul{margin:0.35rem 0 0;padding-left:1.1rem;font-weight:600;}
+.past-open-warning li{margin:0.18rem 0;}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .bottom-panels{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(180px,0.8fr);gap:8px;margin-top:0.45rem;align-items:flex-start}
 .bottom-panels section:nth-child(3){grid-column:1/-1;}
@@ -279,6 +286,7 @@ border-color: #cbd5e1 !important;
 .dark .status-pill.status-assigned{background:#0f172a;color:#7dd3fc}
 .dark .status-pill.status-overdue{background:#331a1a;color:#fecaca}
 .dark .status-pill.status-unassigned{background:#1e293b;color:#cbd5e1}
+.dark .past-open-warning{border-color:#92400e;background:rgba(146,64,14,0.25);color:#fde68a;}
 .dark input, .dark select{background:var(--surface);color:var(--text);border-color:#334155}
 .dark .task-block{background:var(--surface);color:var(--text)}
 .dark .card{background:var(--surface);border-color:#1f2937;}
@@ -313,6 +321,8 @@ border-color: #cbd5e1 !important;
 .dark .day-cell.util-medium{background:rgba(245, 158, 11, 0.18);border-color:#f59e0b;}
 .dark .day-cell.util-full{background:rgba(249, 115, 22, 0.2);border-color:#fb923c;}
 .dark .day-cell.util-over{background:rgba(239, 68, 68, 0.18);border-color:#ef4444;}
+.dark .day-cell.past-neutral{background:#0f172a !important;color:#e2e8f0;border-color:#334155;}
+.dark .day-cell.historical-filled{background:rgba(100,116,139,0.35) !important;color:#e5e7eb;border-color:#64748b;}
 .dark,
 .dark * {
 color:#fff !important;
@@ -382,6 +392,7 @@ section.card-panel{padding:0.9rem;}
 <strong id="month-title"></strong>
 <button id="next-month" class="btn">»</button>
 </div>
+<div id="past-open-warning" class="past-open-warning" aria-live="polite"></div>
 <div id="month-calendar"></div>
 </section>
 
@@ -677,9 +688,15 @@ return { ...task, minutes: remainingMinutes, originalMinutes: Number(task.minute
 }
 function pruneReservedCapacity(){
 const todayStr = toLocalISO(new Date());
-Object.keys(window.reservedCapacityByDate || {}).forEach(date => {
-if (date < todayStr) delete window.reservedCapacityByDate[date];
+const source = window.reservedCapacityByDate || {};
+const next = {};
+Object.entries(source).forEach(([date, minutes]) => {
+const value = Number(minutes || 0);
+if (!Number.isFinite(value) || value <= 0) return;
+if (date > todayStr) return;
+next[date] = value;
 });
+window.reservedCapacityByDate = next;
 }
 
 function createPlanUnit(task, unitId, date, status, extra = {}) {
@@ -747,6 +764,7 @@ const planningStart = sortedTasks.map(task => inferTaskCreatedAt(task)).filter(B
 const startDate = new Date(planningStart); startDate.setHours(0,0,0,0);
 const maxDL = new Date(Math.max(...sortedTasks.map(t=>new Date(t.deadline))));
 const todayStr = toLocalISO(new Date());
+const previousPlanMap = window.planUnitMap || {};
 
 const reservedByDate = {};
 const assignedUnits = [];
@@ -768,7 +786,7 @@ const override = overrides[unitId];
 if (completedSet.has(unitId)) {
 const frozen = completedItems[unitId] || override?.item;
 const date = override?.date || frozen?.date || inferTaskCreatedAt(task);
-if (date === todayStr) reservedByDate[date] = (reservedByDate[date] || 0) + UNIT_MINUTES;
+if (date <= todayStr) reservedByDate[date] = (reservedByDate[date] || 0) + UNIT_MINUTES;
 pushUnit(createPlanUnit(task, unitId, date, 'assigned', {
 originalDate: frozen?.originalDate || override?.originalDate || date,
 locked: !!override,
@@ -784,6 +802,17 @@ pushUnit(createPlanUnit(task, unitId, override.date, status, { originalDate: ove
 continue;
 }
 
+const previousUnit = previousPlanMap[unitId];
+if (previousUnit?.date && previousUnit.date <= todayStr) {
+const status = new Date(previousUnit.date) < new Date(task.deadline) ? 'assigned' : 'late-assigned';
+reservedByDate[previousUnit.date] = (reservedByDate[previousUnit.date] || 0) + UNIT_MINUTES;
+pushUnit(createPlanUnit(task, unitId, previousUnit.date, status, {
+originalDate: previousUnit.originalDate || previousUnit.date,
+locked: true
+}));
+continue;
+}
+
 backlog.push({ task, unitId, taskCreatedAt: inferTaskCreatedAt(task) });
 }
 });
@@ -791,6 +820,7 @@ backlog.push({ task, unitId, taskCreatedAt: inferTaskCreatedAt(task) });
 const calendar = [];
 for(let d=new Date(startDate); d<=maxDL; d.setDate(d.getDate()+1)){
 const ds = toLocalISO(d);
+if (ds < todayStr) continue;
 const capacity = getCapacityForDate(ds);
 const reserved = Number((window.reservedCapacityByDate && window.reservedCapacityByDate[ds]) || 0) + Number(reservedByDate[ds] || 0);
 const available = Math.max(0, capacity - reserved);
@@ -1138,11 +1168,11 @@ return true;
 }
 function reserveTodayCapacityForArchivedItems(items){
 const todayStr = toLocalISO(new Date());
-const minutes = items
-.filter(item => item.date === todayStr)
-.reduce((sum,item)=>sum + (item.minutes || 0), 0);
-if (!minutes) return;
-window.reservedCapacityByDate[todayStr] = Number(window.reservedCapacityByDate[todayStr] || 0) + minutes;
+items.forEach(item => {
+if (!item.date) return;
+if (item.date > todayStr) return;
+window.reservedCapacityByDate[item.date] = Number(window.reservedCapacityByDate[item.date] || 0) + (item.minutes || 0);
+});
 }
 function shouldArchiveTask(task, assignedItems){
 const today = new Date(); today.setHours(0,0,0,0);
@@ -1228,6 +1258,30 @@ return;
 }
 
   const todayStr = toLocalISO(new Date());
+  const pastOpenItems = results
+    .filter(item => isScheduledResult(item) && !isTaskDone(item) && item.date && item.date < todayStr)
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+  const pastOpenWarning = document.getElementById('past-open-warning');
+  if (pastOpenWarning) {
+    if (pastOpenItems.length > 0) {
+      const warningItems = pastOpenItems
+        .slice(0, 5)
+        .map(item => `<li>${formatDateDE(item.date)} - ${item.title}: ${formatHoursValue((item.minutes || 0) / 60)}h offen</li>`)
+        .join('');
+      const moreText = pastOpenItems.length > 5
+        ? `<div style="margin-top:0.25rem;font-size:0.78rem;opacity:0.9;">+ ${pastOpenItems.length - 5} weitere Einträge</div>`
+        : '';
+      pastOpenWarning.innerHTML = `<div>Nicht erledigte Slots in der Vergangenheit:</div><ul>${warningItems}</ul>${moreText}`;
+      pastOpenWarning.classList.add('visible');
+    } else {
+      pastOpenWarning.innerHTML = '';
+      pastOpenWarning.classList.remove('visible');
+    }
+  }
+
   const overdueTitles = new Set(results.filter(r => r.status === 'overdue').map(r => r.title));
   const schedulableTaskMap = new Map(schedulableTasks.map(st => [getTaskArchiveKey(st), st]));
   const taskProgressData = new Map();
@@ -1323,10 +1377,19 @@ const utilClass = util > 1 ? 'util-over' : util >= 1 ? 'util-full' : util >= 0.5
 dayCell.classList.add(utilClass);
 if(util < 0.5){ dayCell.classList.add('free-time'); } else { dayCell.classList.add('partial-time'); }
 if(util > 1){ dayCell.classList.add('overloaded'); }
+if (dateStr < todayStr && tasksForDay.length === 0 && reserved > 0) {
+dayCell.classList.add('historical-filled');
+}
+if (dateStr < todayStr && !dayCell.classList.contains('historical-filled')) {
+dayCell.classList.add('past-neutral');
+}
+const isPastDay = dateStr < todayStr;
+if (!isPastDay) {
 const capInfo=document.createElement('div');
 capInfo.className='capacity-info';
-capInfo.textContent = `${formatHoursValue(displayedUsed/60)} / ${formatHoursValue(capacity/60)}h`;
+capInfo.textContent = `${formatHoursValue(used/60)} / ${formatHoursValue(capacity/60)}h`;
 header.appendChild(capInfo);
+}
 }
 if(capacity===0 && tasksForDay.length>0 && !exception){ dayCell.classList.add('overloaded'); const noSlot=document.createElement('div'); noSlot.style.fontSize='0.85rem'; noSlot.style.color='#b91c1c'; noSlot.textContent='Kein verfügbarer Slot'; dayCell.appendChild(noSlot); }
 const sortedTasksForDay = sortDayTasks(tasksForDay);

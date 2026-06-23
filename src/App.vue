@@ -59,6 +59,18 @@
           </div>
           <p v-else class="mt-3 text-sm text-slate-500 dark:text-slate-400">Noch keine vollstaendigen Aufgaben eingetragen.</p>
         </details>
+
+        <div v-if="livePastUnfinishedItems.length > 0" class="compact-warning compact-warning-amber mt-3">
+          <strong>Nicht erledigte Slots in der Vergangenheit:</strong>
+          <ul>
+            <li v-for="item in livePastUnfinishedItems.slice(0, 5)" :key="`${item.date}-${item.title}`">
+              {{ formatDateDE(item.date) }} - {{ item.title }}: {{ (item.minutes / 60).toFixed(2) }}h offen
+            </li>
+          </ul>
+          <p v-if="livePastUnfinishedItems.length > 5" class="mt-1 text-xs opacity-80">
+            + {{ livePastUnfinishedItems.length - 5 }} weitere Eintraege
+          </p>
+        </div>
       </header>
 
       <main class="layout-grid">
@@ -554,6 +566,8 @@ const schedule = (tasksToSchedule) => {
   const startDate = planningStartDate.value ? new Date(planningStartDate.value) : new Date()
   startDate.setHours(0, 0, 0, 0)
   const maxDL = new Date(Math.max(...activeTasks.map(t => new Date(t.deadline))))
+  const todayStr = toLocalISO(new Date())
+  const previousPlanMap = planUnitMap.value || {}
 
   const reservedByDate = {}
   const assignedUnits = []
@@ -588,6 +602,17 @@ const schedule = (tasksToSchedule) => {
         continue
       }
 
+      const previousUnit = previousPlanMap[unitId]
+      if (previousUnit?.date && previousUnit.date <= todayStr) {
+        const status = new Date(previousUnit.date) < new Date(task.deadline) ? 'assigned' : 'late-assigned'
+        reservedByDate[previousUnit.date] = (reservedByDate[previousUnit.date] || 0) + UNIT_MINUTES
+        pushUnit(createPlanUnit(task, unitId, previousUnit.date, status, {
+          originalDate: previousUnit.originalDate || previousUnit.date,
+          locked: true
+        }))
+        continue
+      }
+
       backlog.push({ task, unitId, taskCreatedAt: inferTaskCreatedAt(task) })
     }
   })
@@ -595,6 +620,7 @@ const schedule = (tasksToSchedule) => {
   const calendar = []
   for (let d = new Date(startDate); d <= maxDL; d.setDate(d.getDate() + 1)) {
     const dateStr = toLocalISO(d)
+    if (dateStr < todayStr) continue
     const capacity = getCapacityForDay(dateStr)
     const reserved = Number(reservedByDate[dateStr] || 0)
     const available = Math.max(0, capacity - reserved)
@@ -700,6 +726,16 @@ const liveUnusedDays = computed(() => {
     }))
     .filter(day => day.capacity > 0)
     .sort((a, b) => a.date.localeCompare(b.date))
+})
+
+const livePastUnfinishedItems = computed(() => {
+  const today = toLocalISO(new Date())
+  return liveResults.value
+    .filter(item => isScheduledResult(item) && item.date && item.date < today)
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return a.title.localeCompare(b.title)
+    })
 })
 
 const toggleResultDone = (payload) => {
