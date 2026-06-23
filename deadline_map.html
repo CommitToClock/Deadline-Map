@@ -1387,7 +1387,8 @@ dayCell.classList.add('past-neutral');
 }
 const isPastDay = dateStr < todayStr;
 const isToday = dateStr === todayStr;
-const isCompletedDay = tasksForDay.length > 0 && tasksForDay.every(task => isTaskDone(task));
+const isCompletedDay = (tasksForDay.length > 0 && tasksForDay.every(task => isTaskDone(task)))
+  || (tasksForDay.length === 0 && reserved > 0);
 if (isToday && isCompletedDay) {
 const capInfo=document.createElement('div');
 capInfo.className='capacity-info capacity-info-done';
