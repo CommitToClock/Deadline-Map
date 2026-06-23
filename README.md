@@ -1,33 +1,51 @@
 # Deadline Map
 
-Deadline Map ist eine Web-Anwendung zur Lern- und Deadlineplanung. Aufgaben werden mit Aufwand und Deadline erfasst, mit woechentlichen Zeitkapazitaeten abgeglichen und automatisch auf verfuegbare Tage verteilt.
+![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=flat&logo=node.js) ![Vue.js](https://img.shields.io/badge/Vue.js-3-green?style=flat&logo=vue.js) ![License](https://img.shields.io/badge/License-ISC-blue?style=flat)
 
-## Oeffentliche Version
+Intelligente Lern- und Deadlineplanung mit Kapazitätsabgleich. Plane deine Aufgaben, definiere deine verfügbare Zeit pro Woche und lass die App berechnen, ob du alles rechtzeitig schaffst.
 
-Die aktuelle finale Version ist verfuegbar unter:
+**Live:** https://deadline-map.onrender.com/
 
-https://deadline-map.onrender.com/
+## Wie nutzt man das Projekt?
 
-(Deployed auf Render mit automatischer Synchronisation von GitHub main branch)
+1. **Aufgaben erfassen**: Gib Aufgaben, benötigte Stunden und Deadlines ein.
+2. **Kapazitäten definieren**: Lege fest, wie viele Stunden pro Wochentag du verfügbar hast.
+3. **Ausnahmen eintragen**: Berücksichtige Urlaub, Krankheit oder Feiertage.
+4. **Plan erstellen**: Die App berechnet automatisch einen optimalen Lernplan.
+5. **Sehen, ob es passt**: Warnung, wenn deine Zeit nicht ausreicht – rechtzeitig planen statt Panik!
 
-## Was das Projekt loest
+## Was ist Kapazitätsplanung?
 
-- Erfasst Aufgaben mit Titel, Aufwand, Deadline und Prioritaet
-- Beruecksichtigt Ausnahmetage (z.B. Urlaub, Krankheit, Feiertage)
-- Nutzt regulaere Wochenkapazitaeten sowie einmalige Wochen-Overrides
-- Zeigt direkt, ob die eingeplante Zeit bis zur Deadline ausreicht
-- Ermoeglicht Speichern/Laden sowie JSON-Export/Import im Browser
+Kapazitätsplanung bedeutet, deine **verfügbare Zeit** gegen deine **notwendige Zeit** abzugleichen. Ein klassisches Problem:
+- Du hast 3 Prüfungen (20h, 15h, 10h) bis in 2 Wochen.
+- Du kannst nur Mo–Fr je 2h lernen = 20h insgesamt.
+- Schon Stoff verstanden? → Die App zeigt es direkt!
 
-## Verwendete Technologien
+## Was ist ein Lernplan?
 
-- HTML, CSS, JavaScript
-- Vue 3 (Vite-Basis im Projekt vorhanden)
-- Tailwind CSS
-- Node.js + Express (optional zum lokalen Servieren)
+Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortiert nach Priorität und Deadline und verteilt die Arbeit auf verfügbare Tage – damit deine Zeit optimal genutzt wird und du Stress vermeidest.
 
-## Lokale Ausfuehrung
+## Table of Contents
 
-Voraussetzung: Node.js 18+ und npm.
+| | |
+|---|---|
+| [Tech-Stack](#tech-stack) | Welche Technologien? |
+| [Installation](#installation) | Lokal starten |
+| [Erste Schritte](#erste-schritte) | Schritt-für-Schritt Setup |
+| [Projektstruktur](#projektstruktur) | Wie ist der Code aufgebaut? |
+| [Features](#features) | Was kann die App alles? |
+| [Deployment](#deployment) | Live im Internet |
+
+## Tech-Stack
+
+- **Frontend**: Vue 3 + Vite + Tailwind CSS
+- **Backend**: Node.js + Express
+- **Speicher**: Browser LocalStorage + JSON-Export/Import
+- **Entwicklung**: HTML, CSS, JavaScript
+
+## Installation
+
+Voraussetzung: **Node.js 18+** und **npm**.
 
 ```bash
 git clone https://github.com/CommitToClock/Deadline-Map.git
@@ -35,35 +53,66 @@ cd Deadline-Map
 npm install
 ```
 
-Entwicklung mit Vite:
+## Erste Schritte
+
+### Schritt 1: Lokal im Dev-Modus starten
 
 ```bash
 npm run dev
 ```
 
-Produktionsbuild testen:
+Die App öffnet sich unter: `http://localhost:5173`
+
+### Schritt 2: Produktionsbuild testen
 
 ```bash
 npm run build
 npm run preview
 ```
 
-Alternative mit Express-Server:
+### Schritt 3: Mit Express-Server starten
 
 ```bash
 npm start
 ```
 
-Standard-URL bei Express:
+Öffne: `http://localhost:3000`
 
-```text
-http://localhost:3000
+## Projektstruktur
+
 ```
+Deadline-Map/
+├── src/                          # Vue-Komponenten
+│   ├── App.vue                   # Hauptkomponente
+│   ├── main.js                   # Vue-Einstiegspunkt
+│   ├── style.css                 # Globale Stile
+│   └── components/
+│       └── ResultsSection.vue    # Ergebnisanzeige
+├── index.html                    # HTML-Einstiegspunkt (Vue)
+├── deadline_map.html             # Standalone HTML (All-in-One)
+├── server.js                     # Express-Server
+├── package.json                  # Abhängigkeiten
+├── vite.config.js                # Vite-Konfiguration
+├── tailwind.config.js            # Tailwind-Konfiguration
+└── README.md                     # Diese Datei
+```
+
+## Features
+
+- ✅ Aufgaben mit Titel, Stunden, Deadline und Priorität
+- ✅ Flexible wöchentliche Kapazitäten (pro Wochentag konfigurierbar)
+- ✅ Ausnahmetage (Urlaub, Krankheit, Feiertage)
+- ✅ Wöchentliche Überrides für spezielle Wochen
+- ✅ Automatischer Lernplan-Generator
+- ✅ Echtzeit-Kapazitätscheck (Warnung bei Überlastung)
+- ✅ Speichern und Laden von Plänen im Browser
+- ✅ JSON-Export/Import
+- ✅ Dark Mode
 
 ## Deployment
 
-Die aktuelle Version wird automatisch von Render deployt:
+Die App wird automatisch von **Render** deployt:
 
-- URL: https://deadline-map.onrender.com/
-- Trigger: Jeder Push auf `main` branch loest einen neuen Deploy aus
-- Server: Express-basiert, startet mit `npm start` auf Port 3000
+- **URL**: https://deadline-map.onrender.com/
+- **Trigger**: Jeder Push auf `main` branch
+- **Start**: `npm start` (Express-Server auf Port 3000)
