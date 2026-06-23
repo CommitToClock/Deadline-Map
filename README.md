@@ -23,7 +23,7 @@ Kapazitätsplanung bedeutet, deine **verfügbare Zeit** gegen deine **notwendige
 
 ## Was ist ein Lernplan?
 
-Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortiert nach Priorität und Deadline und verteilt die Arbeit auf verfügbare Tage – damit deine Zeit optimal genutzt wird und du Stress vermeidest.
+Ein Lernplan ist eine **tagesweise Aufteilung** deiner Aufgaben. Die App sortiert nach Deadline und verteilt die Arbeit auf verfügbare Tage – damit deine Zeit optimal genutzt wird und du Stress vermeidest.
 
 ## Table of Contents
 
