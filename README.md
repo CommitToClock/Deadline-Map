@@ -1,57 +1,60 @@
 # Deadline Map
 
-Live-Demo: https://deadline-map.onrender.com/
+Deadline Map ist eine Web-Anwendung zur Lern- und Deadlineplanung. Aufgaben werden mit Aufwand und Deadline erfasst, mit woechentlichen Zeitkapazitaeten abgeglichen und automatisch auf verfuegbare Tage verteilt.
 
-Deadline Map ist eine interaktive Web-App zur Lern- und Deadlineplanung. Nutzerinnen und Nutzer tragen Aufgaben, Deadlines, woechentliche Lernzeiten, Ausnahmetage und einmalige Wochenanpassungen ein. Die App berechnet daraus einen Lernplan und zeigt direkt, ob die verfuegbare Zeit bis zu den Deadlines ausreicht.
+## Oeffentliche Version
 
-## Funktionen
+Finale Version (GitHub Pages):
 
-- Aufgaben mit benoetigter Zeit, Deadline und Prioritaet erfassen
-- Ausnahmetage wie Urlaub, Feiertage oder Krankheit eintragen
-- Automatische Verteilung der Aufgaben auf freie Tage
-- Live-Anzeige fuer Zeitmangel, geplante Stunden und freie Restkapazitaeten
-- Speichern, Laden, Export und Import der Planungsdaten im Browser
-- Dark Mode
+https://committoclock.github.io/Deadline-Map/
 
-## Technologien
+Hinweis: Wenn dort eine aeltere Version angezeigt wird, einmal mit `Ctrl+F5` hart neu laden (Browser-Cache).
 
-- Vue 3
-- Vite
+## Was das Projekt loest
+
+- Erfasst Aufgaben mit Titel, Aufwand, Deadline und Prioritaet
+- Beruecksichtigt Ausnahmetage (z.B. Urlaub, Krankheit, Feiertage)
+- Nutzt regulaere Wochenkapazitaeten sowie einmalige Wochen-Overrides
+- Zeigt direkt, ob die eingeplante Zeit bis zur Deadline ausreicht
+- Ermoeglicht Speichern/Laden sowie JSON-Export/Import im Browser
+
+## Verwendete Technologien
+
+- HTML, CSS, JavaScript
+- Vue 3 (Vite-Basis im Projekt vorhanden)
 - Tailwind CSS
-- Express fuer das optionale lokale/produktive Servieren der App
-- LocalStorage und JSON-Dateien fuer lokale Datenspeicherung
+- Node.js + Express (optional zum lokalen Servieren)
 
-## Lokal Starten
+## Lokale Ausfuehrung
 
-Voraussetzung: Node.js und npm muessen installiert sein.
+Voraussetzung: Node.js 18+ und npm.
 
 ```bash
 git clone https://github.com/CommitToClock/Deadline-Map.git
 cd Deadline-Map
 npm install
+```
+
+Entwicklung mit Vite:
+
+```bash
 npm run dev
 ```
 
-Die Entwicklungsumgebung laeuft danach unter der URL, die Vite im Terminal ausgibt, normalerweise:
-
-```text
-http://localhost:5173
-```
-
-## Production Build
+Produktionsbuild testen:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-Alternativ kann die App ueber den Express-Server gestartet werden:
+Alternative mit Express-Server:
 
 ```bash
 npm start
 ```
 
-Der Express-Server laeuft standardmaessig unter:
+Standard-URL bei Express:
 
 ```text
 http://localhost:3000
@@ -59,34 +62,17 @@ http://localhost:3000
 
 ## Deployment
 
-Die oeffentliche Version ist hier erreichbar:
+Das Repository enthaelt einen GitHub-Actions-Workflow fuer GitHub Pages. Bei Push auf `main` wird die finale Standalone-Seite automatisch veroefentlicht.
 
-https://committoclock.github.io/Deadline-Map/
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Ziel-URL: `https://committoclock.github.io/Deadline-Map/`
 
-Das Repository ist fuer ein statisches Deployment vorbereitet. Fuer GitHub Pages kann nach einem Build der Inhalt aus `dist/` veroeffentlicht werden. Fuer Plattformen wie Vercel, Netlify oder Render reichen typischerweise diese Einstellungen:
+## Repository-Hygiene
 
-- Build command: `npm run build`
-- Publish directory: `dist`
-- Optionaler Start command fuer Node/Express: `npm start`
+Folgende unnoetige Artefakte sind per `.gitignore` ausgeschlossen:
 
-## Projektstruktur
+- `node_modules/`
+- `dist/`
+- lokale Editor-/Temp-/Log-Dateien
 
-```text
-.
-|-- src/
-|   |-- App.vue
-|   |-- main.js
-|   |-- style.css
-|   `-- components/
-|       `-- ResultsSection.vue
-|-- index.html
-|-- deadline_map.html
-|-- server.js
-|-- package.json
-|-- tailwind.config.js
-`-- vite.config.js
-```
-
-## Hinweise
-
-Die Planungsdaten bleiben lokal im Browser der nutzenden Person. Beim Export wird eine JSON-Datei erzeugt, die spaeter wieder importiert werden kann.
+Damit bleibt das Repository fuer die finale Abgabe schlank und nachvollziehbar.
