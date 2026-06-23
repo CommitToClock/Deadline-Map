@@ -4,11 +4,11 @@ Deadline Map ist eine Web-Anwendung zur Lern- und Deadlineplanung. Aufgaben werd
 
 ## Oeffentliche Version
 
-Finale Version (GitHub Pages):
+Die aktuelle finale Version ist verfuegbar unter:
 
-https://committoclock.github.io/Deadline-Map/
+https://deadline-map.onrender.com/
 
-Hinweis: Wenn dort eine aeltere Version angezeigt wird, einmal mit `Ctrl+F5` hart neu laden (Browser-Cache).
+(Deployed auf Render mit automatischer Synchronisation von GitHub main branch)
 
 ## Was das Projekt loest
 
@@ -62,10 +62,11 @@ http://localhost:3000
 
 ## Deployment
 
-Das Repository enthaelt einen GitHub-Actions-Workflow fuer GitHub Pages. Bei Push auf `main` wird die finale Standalone-Seite automatisch veroefentlicht.
+Die aktuelle Version wird automatisch von Render deployt:
 
-- Workflow: `.github/workflows/deploy-pages.yml`
-- Ziel-URL: `https://committoclock.github.io/Deadline-Map/`
+- URL: https://deadline-map.onrender.com/
+- Trigger: Jeder Push auf `main` branch loest einen neuen Deploy aus
+- Server: Express-basiert, startet mit `npm start` auf Port 3000
 
 ## Repository-Hygiene
 
