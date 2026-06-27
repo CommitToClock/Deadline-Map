@@ -116,8 +116,9 @@ section.card-panel{background:var(--card);border:1px solid var(--border);border-
 .panel-header h3{margin:0;font-size:1rem;}
 .btn-compact{padding:0.2rem 0.45rem;font-size:0.75rem;}
 .toolbar .toggle-btn{background:var(--accent);color:#fff;border:none}
-.month-nav{padding:0.45rem 0.7rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);justify-content:center}
-.month-nav button{min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
+.month-nav{padding:0.45rem 0.7rem;background:rgba(255,255,255,0.9);border:1px solid var(--border);border-radius:0.95rem;box-shadow:var(--shadow-sm);justify-content:center;flex-wrap:nowrap}
+.month-nav button{flex:0 0 auto;width:auto;min-width:28px;padding:0.3rem 0.45rem;font-size:0.82rem;line-height:1.1}
+.month-nav #month-title{flex:0 1 auto;min-width:9rem;text-align:center;white-space:nowrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;min-height:20px;padding:0.25rem 0.45rem;border-radius:0.75rem;border:1px solid transparent;background:#2563eb;color:#fff;font-weight:600;transition:background .2s ease,color .2s ease;font-size:0.82rem;line-height:1.2}
 .bottom-panels .btn{padding:0.25rem 0.45rem;font-size:0.78rem;min-height:18px;}
 .btn:hover{background:#1d4ed8}
@@ -335,8 +336,9 @@ opacity:0.8;
 body{margin:1rem auto;padding:0 0.85rem;}
 section.card-panel{padding:0.9rem;}
 .toolbar{justify-content:center;gap:8px;}
-.month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
-.month-nav button{min-width:34px;}
+.month-nav{flex-direction:row;align-items:center;gap:0.65rem;padding:0.75rem 0.9rem;}
+.month-nav button{width:auto;min-width:34px;}
+.month-nav #month-title{flex:1 1 auto;}
 .btn{width:100%;min-width:0;}
 .legend{flex-direction:column;align-items:flex-start;}
 #month-calendar{grid-template-columns:38px repeat(7, minmax(0,1fr));gap:6px;}
@@ -354,7 +356,7 @@ section.card-panel{padding:0.9rem;}
 body{margin:0.85rem auto;padding:0 0.7rem;}
 section.card-panel{padding:0.9rem;}
 .toolbar{flex-direction:column;align-items:stretch;}
-#main-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+#main-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
 #main-toolbar > .btn{width:100%;padding:0.38rem 0.15rem;font-size:0.68rem;white-space:nowrap;}
 #main-toolbar > .btn:not(#toggle-dark) .btn-icon{display:none;}
 #main-toolbar > #toggle-dark{grid-column:1/-1;font-size:0.78rem;}
@@ -372,15 +374,65 @@ section.card-panel{padding:0.9rem;}
 .legend-item{padding:0.45rem 0.75rem;}
 .task-block{padding:8px 10px;}
 .toolbar > .btn{width:100%;}
+.toolbar.month-nav > .btn{width:2.25rem;}
 #slots,#current-slots{grid-template-columns:repeat(2,minmax(0,1fr));}
+
+#tasks .task-row,
+#exceptions .exception-row{
+display:grid;
+grid-template-columns:minmax(0,1fr) minmax(8.5rem,auto);
+gap:0.55rem 0.7rem;
+align-items:center;
+overflow:visible;
+padding:0.75rem;
+}
+#tasks .task-row .t-title,
+#exceptions .exception-row .e-name{
+grid-column:1/-1;
+width:100% !important;
+margin:0;
+}
+#tasks .task-row .stunden-label,
+#tasks .task-row .deadline-label,
+#exceptions .exception-row .deadline-label{
+font-size:0.78rem;
+}
+#tasks .task-row .t-hrs,
+#tasks .task-row .t-dl,
+#exceptions .exception-row .e-from,
+#exceptions .exception-row .e-to{
+justify-self:stretch;
+width:100% !important;
+min-width:0 !important;
+max-width:none;
+}
+#tasks .task-row .prio-container,
+#tasks .task-row .progress-container{
+grid-column:1/-1;
+width:100%;
+}
+#tasks .task-row .danger-badge{
+grid-column:1;
+min-width:0;
+}
+#tasks .task-row .delete-btn{
+grid-column:2;
+justify-self:end;
+margin-left:0;
+width:auto;
+}
+#exceptions .exception-row .delete-btn{
+grid-column:1/-1;
+justify-self:end;
+margin-left:0;
+width:auto;
+}
 }
 </style>
 </head>
 <body>
 <h1>Lernplan & Kapazitäts-Check</h1>
 <div class="toolbar" id="main-toolbar">
-<button id="save-data" class="btn"><span class="btn-icon">💾</span>Speichern</button>
-<button id="load-data" class="btn"><span class="btn-icon">📂</span>Laden</button>
 <button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
 <button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
 <button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
@@ -870,7 +922,7 @@ const deleteBtn = document.createElement('button');
 deleteBtn.className = 'btn btn-danger delete-btn';
 deleteBtn.type = 'button';
 deleteBtn.textContent = '✕';
-deleteBtn.onclick = () => { div.remove(); renderMonthView(); };
+deleteBtn.onclick = () => { div.remove(); renderMonthView(); persistData(); };
 const rightCol = div.querySelector('.task-col-right');
 if (rightCol) rightCol.appendChild(deleteBtn); else div.appendChild(deleteBtn);
 document.getElementById(containerId).appendChild(div);
@@ -962,6 +1014,8 @@ const input = row.querySelector('.t-imp');
 if (input) input.value = btn.dataset.priority;
 row.classList.remove('priority-1','priority-2','priority-3');
 row.classList.add(`priority-${btn.dataset.priority}`);
+renderMonthView();
+persistData();
 });
 function normalizeTaskHours(task){
 const directHours = Number(task?.hours);
@@ -985,6 +1039,7 @@ function getStoredTasksFromUI(){ return readTaskRows(true).map(task => ({ ...tas
 function getSlotsFromUI(){ return [...document.querySelectorAll('#slots .slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs').value||0) })).filter(s=>s.hours>0); }
 function getCurrentSlotsFromUI(){ return [...document.querySelectorAll('#current-slots .slot-row')].map(r=>({ day: r.querySelector('.s-day').value, hours: normalizeHoursValue(r.querySelector('.s-hrs-current').value||0) })).filter(s=>s.hours>0); }
 function getExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.from && e.to); }
+function getStoredExceptionsFromUI(){ return [...document.querySelectorAll('.exception-row')].map(r=>({ name: r.querySelector('.e-name').value, from: r.querySelector('.e-from').value, to: r.querySelector('.e-to').value })).filter(e=>e.name || e.from || e.to); }
 function validateSlotRows(){
 const error = document.getElementById('slots-error');
 if (error) {
@@ -1013,7 +1068,7 @@ exportedAt: new Date().toLocaleString('de-DE'),
 source: 'standalone-html',
 tasks,
 slots: getSlotsFromUI(),
-exceptions: getExceptionsFromUI(),
+exceptions: getStoredExceptionsFromUI(),
 overrides: [],
 capacityVersions: window.capacityVersions || [],
 planSnapshots: window.planSnapshots || {},
@@ -1096,8 +1151,17 @@ currentMonthDate = new Date();
 currentMonthDate.setDate(1);
 }
 function persistData(){ localStorage.setItem('lernplan_saved_data', JSON.stringify(getFormData())); }
-function saveData(){ persistData(); alert('Daten gespeichert.'); }
-function loadData(){ const saved = localStorage.getItem('lernplan_saved_data'); if(!saved){ alert('Keine gespeicherten Daten gefunden.'); return;} fillFormData(JSON.parse(saved)); renderMonthView(); alert('Daten geladen.'); }
+function restoreSavedData(){
+const saved = localStorage.getItem('lernplan_saved_data');
+if (!saved) return false;
+try {
+fillFormData(JSON.parse(saved));
+return true;
+} catch (error) {
+console.warn('Automatisch gespeicherte Daten konnten nicht geladen werden.', error);
+return false;
+}
+}
 function exportData(){ const blob = new Blob([JSON.stringify(buildTransferPayload(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
 function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
 function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
@@ -1425,8 +1489,6 @@ function changeMonth(offset){ currentMonthDate.setMonth(currentMonthDate.getMont
 // wire controls
 document.getElementById('prev-month').addEventListener('click', ()=>changeMonth(-1));
 document.getElementById('next-month').addEventListener('click', ()=>changeMonth(1));
-document.getElementById('save-data').addEventListener('click', saveData);
-document.getElementById('load-data').addEventListener('click', loadData);
 document.getElementById('export-data').addEventListener('click', exportData);
 document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
 document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
@@ -1474,6 +1536,7 @@ persistData();
 });
 let suppressTaskToggleUntil = 0;
 window.addEventListener('DOMContentLoaded', ()=>{ initDarkMode();
+restoreSavedData();
 const capacityWeekInputOnLoad = document.getElementById('capacity-valid-week');
 if (capacityWeekInputOnLoad) {
 capacityWeekInputOnLoad.min = getWeekValueFromDate();
@@ -1524,6 +1587,8 @@ const taskId = e.dataTransfer.getData('text/plain');
 if (dayElement && taskId) moveTaskToDay(taskId, dayElement.dataset.date);
 });
 }
+renderMonthView();
+persistData();
 });
 
 function moveTaskToDay(taskId, newDate){
@@ -1578,11 +1643,7 @@ renderMonthView();
 persistData();
 }
 
-// simple auto-save
-function enableAutoSave(){ document.addEventListener('change', ()=>{
-persistData();
-}); }
-enableAutoSave();
+window.addEventListener('pagehide', persistData);
 
 </script>
 </body>
