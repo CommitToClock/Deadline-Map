@@ -123,10 +123,6 @@ section.card-panel{background:var(--card);border:1px solid var(--border);border-
 .btn:hover{background:#1d4ed8}
 button:disabled, .btn:disabled, .btn-danger:disabled{background:#e2e8f0;color:#64748b;border-color:#cbd5e1;cursor:not-allowed;}
 .btn-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;font-size:0.85rem}
-.button-tooltip{flex:1 1 240px;min-width:220px;width:auto;padding:0.55rem 0.9rem;border-radius:0.85rem;background:linear-gradient(180deg,#eff6ff,#dbeafe);color:#0f172a;font-size:0.88rem;border:1px solid #93c5fd;box-shadow:0 1px 6px rgba(15,23,42,0.12);font-weight:600;}
-.toolbar .button-tooltip{margin-bottom:0;}
-.dark .button-tooltip{background:linear-gradient(180deg,#374151,#111827);border-color:#4b5563;color:#f8fafc;box-shadow:0 1px 8px rgba(0,0,0,0.3);}
-.button-tooltip::before{content:'ℹ️';margin-right:0.4rem;}
 .btn-danger{background:transparent;color:#ef4444;border:none;font-weight:600;border-radius:0.55rem;padding:0.28rem 0.5rem;font-size:0.78rem;line-height:1.2;min-height:18px;transition:background .2s ease}
 .btn-danger:hover{background:#fef2f2}
 input[type="number"], input[type="date"], input[type="text"], select{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.45rem 0.65rem;color:var(--text);box-shadow:inset 0 1px 2px rgb(15 23 42 / 0.04);box-sizing:border-box;min-width:0;font-size:0.85rem;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;}
@@ -339,7 +335,6 @@ opacity:0.8;
 body{margin:1rem auto;padding:0 0.85rem;}
 section.card-panel{padding:0.9rem;}
 .toolbar{justify-content:center;gap:8px;}
-.toolbar > .button-tooltip{width:100%;}
 .month-nav{flex-direction:column;gap:0.65rem;padding:0.75rem 0.9rem;}
 .month-nav button{min-width:34px;}
 .btn{width:100%;min-width:0;}
@@ -358,11 +353,15 @@ section.card-panel{padding:0.9rem;}
 @media (max-width: 600px) {
 body{margin:0.85rem auto;padding:0 0.7rem;}
 section.card-panel{padding:0.9rem;}
-.toolbar, .month-nav{flex-direction:column;align-items:stretch;}
-.month-nav{gap:0.6rem;padding:0.75rem 0.9rem;}
-.month-nav strong{display:block;margin:0.4rem 0;}
+.toolbar{flex-direction:column;align-items:stretch;}
+#main-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+#main-toolbar > .btn{width:100%;padding:0.38rem 0.15rem;font-size:0.68rem;white-space:nowrap;}
+#main-toolbar > .btn:not(#toggle-dark) .btn-icon{display:none;}
+#main-toolbar > #toggle-dark{grid-column:1/-1;font-size:0.78rem;}
+.month-nav{flex-direction:row;align-items:center;gap:0.45rem;padding:0.55rem 0.65rem;}
+.month-nav strong{display:block;flex:1;margin:0;text-align:center;white-space:nowrap;}
 .btn{width:100%;}
-.month-nav button{min-width:0;}
+.month-nav button{width:2.25rem;min-width:2.25rem;padding:0.35rem;}
 #month-calendar{grid-template-columns:34px repeat(7, minmax(0,1fr));gap:5px;}
       .weekday-label{font-size:0.72rem;padding:0.45rem 0;}
       .weekday-label{font-size:0.72rem;padding:0;height:18px;}
@@ -385,7 +384,6 @@ section.card-panel{padding:0.9rem;}
 <button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
 <button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
 <button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
-<div class="button-tooltip" id="toolbar-tooltip">Hover über einen Button für eine Kurzinfo.</div>
 <input id="file-import" type="file" accept=".json,application/json" style="display:none">
 </div>
 <section class="card-panel">
@@ -1433,19 +1431,6 @@ document.getElementById('export-data').addEventListener('click', exportData);
 document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
 document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
 document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
-const toolbarTooltip = document.getElementById('toolbar-tooltip');
-const hoverText = {
-'save-data': 'Speichert den aktuellen Lernplan im lokalen Speicher.',
-'load-data': 'Lädt den zuletzt gespeicherten Lernplan.',
-'export-data': 'Exportiert die aktuellen Daten als JSON-Datei.',
-'import-data': 'Importiert einen gespeicherten Lernplan aus einer JSON-Datei.',
-'toggle-dark': 'Wechselt zwischen hellem und dunklem Modus.'
-};
-document.querySelectorAll('#main-toolbar button').forEach(btn=>{
-btn.addEventListener('mouseenter', ()=> { toolbarTooltip.textContent = hoverText[btn.id] || 'Info nicht verfügbar.'; });
-btn.addEventListener('mouseleave', ()=> { toolbarTooltip.textContent = 'Hover über einen Button für eine Kurzinfo.'; });
-});
-
 document.getElementById('tab-add').addEventListener('click', addActiveTabRow);
 document.querySelectorAll('.tab-button').forEach(btn=> btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab)));
 const capacityWeekInput = document.getElementById('capacity-valid-week');
