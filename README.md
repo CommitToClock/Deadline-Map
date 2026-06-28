@@ -124,6 +124,7 @@ Deadline-Map/
 - ✅ Echtzeit-Kapazitätscheck (Warnung bei Überlastung)
 - ✅ Speichern und Laden von Plänen im Browser
 - ✅ JSON-Export/Import
+- ✅ ICS-Export für Google Kalender und Outlook
 - ✅ Dark Mode
 
 ## Aktuelles Planungsverhalten

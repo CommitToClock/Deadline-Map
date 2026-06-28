@@ -434,6 +434,7 @@ width:auto;
 <h1>Lernplan & Kapazitäts-Check</h1>
 <div class="toolbar" id="main-toolbar">
 <button id="export-data" class="btn"><span class="btn-icon">⬇️</span>Exportieren</button>
+<button id="export-ics" class="btn"><span class="btn-icon">📅</span>Kalender (.ics)</button>
 <button id="import-data" class="btn"><span class="btn-icon">⬆️</span>Importieren</button>
 <button id="toggle-dark" class="btn toggle-btn"><span class="btn-icon">🌙</span>Dark Mode</button>
 <input id="file-import" type="file" accept=".json,application/json" style="display:none">
@@ -1163,6 +1164,108 @@ return false;
 }
 }
 function exportData(){ const blob = new Blob([JSON.stringify(buildTransferPayload(), null, 2)], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'lernplan_export.json'; a.click(); URL.revokeObjectURL(url); }
+function escapeICSText(value){
+return String(value ?? '')
+.replace(/\\/g, '\\\\')
+.replace(/\r?\n/g, '\\n')
+.replace(/,/g, '\\,')
+.replace(/;/g, '\\;');
+}
+function formatICSDate(dateStr){ return String(dateStr || '').replace(/-/g, ''); }
+function formatICSDateTime(date = new Date()){
+return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+function getNextDateValue(dateStr){
+const date = new Date(`${dateStr}T12:00:00`);
+if (Number.isNaN(date.getTime())) return '';
+date.setDate(date.getDate() + 1);
+return toLocalISO(date);
+}
+function stableICSHash(value){
+let hash = 2166136261;
+for (const char of String(value || '')) {
+hash ^= char.codePointAt(0);
+hash = Math.imul(hash, 16777619);
+}
+return (hash >>> 0).toString(16).padStart(8, '0');
+}
+function buildICSEvent({ uidSource, date, summary, description, type }){
+const nextDate = getNextDateValue(date);
+if (!date || !nextDate) return [];
+return [
+'BEGIN:VEVENT',
+`UID:${type}-${stableICSHash(uidSource)}@lernplan.local`,
+`DTSTAMP:${formatICSDateTime()}`,
+`DTSTART;VALUE=DATE:${formatICSDate(date)}`,
+`DTEND;VALUE=DATE:${formatICSDate(nextDate)}`,
+`SUMMARY:${escapeICSText(summary)}`,
+`DESCRIPTION:${escapeICSText(description)}`,
+'TRANSP:TRANSPARENT',
+`X-LERNPLAN-TYPE:${type}`,
+'END:VEVENT'
+];
+}
+function buildICSContent(){
+const tasks = getTasksFromUI();
+const results = schedule(tasks).items;
+const todayStr = toLocalISO(new Date());
+const lines = [
+'BEGIN:VCALENDAR',
+'VERSION:2.0',
+'PRODID:-//Lernplan und Kapazitaets-Check//DE',
+'CALSCALE:GREGORIAN',
+'METHOD:PUBLISH',
+'X-WR-CALNAME:Lernplan'
+];
+
+results
+.filter(item => isScheduledResult(item) && item.date >= todayStr && !isTaskDone(item))
+.forEach(item => {
+const hours = formatHoursValue((item.minutes || 0) / 60);
+const priority = getTaskPriority(item);
+lines.push(...buildICSEvent({
+uidSource: `${item.taskKey}|${item.date}|${[...(item.unitIds || [])].sort().join('|')}`,
+date: item.date,
+summary: `Lernen: ${item.title} (${hours} h)`,
+description: `Geplanter Lernblock: ${hours} Stunden\nDeadline: ${formatDateDE(item.deadline)}\nPriorität: ${priority}`,
+type: 'study'
+}));
+});
+
+tasks
+.filter(task => task.deadline && task.deadline >= todayStr)
+.forEach(task => {
+lines.push(...buildICSEvent({
+uidSource: getTaskArchiveKey(task),
+date: task.deadline,
+summary: `Deadline: ${task.title}`,
+description: `Abgabetermin für ${task.title}\nPriorität: ${getTaskPriority(task)}`,
+type: 'deadline'
+}));
+});
+
+lines.push('END:VCALENDAR');
+return {
+content: lines.join('\r\n') + '\r\n',
+eventCount: lines.filter(line => line === 'BEGIN:VEVENT').length,
+date: todayStr
+};
+}
+function exportICS(){
+const calendar = buildICSContent();
+if (calendar.eventCount === 0) {
+alert('Es gibt keine zukünftigen Lernblöcke oder Deadlines zum Exportieren.');
+return;
+}
+const blob = new Blob([calendar.content], {type:'text/calendar;charset=utf-8'});
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = `lernplan_${calendar.date}.ics`;
+a.click();
+URL.revokeObjectURL(url);
+}
+
 function importData(file){ const reader = new FileReader(); reader.onload = () => { try{ fillFormData(JSON.parse(reader.result)); renderMonthView(); persistData(); alert('Import erfolgreich.'); } catch(e){ alert('Import fehlgeschlagen: ungültige JSON-Datei.'); }}; reader.readAsText(file); }
 function setDarkMode(enabled){ document.documentElement.classList.toggle('dark', enabled); localStorage.setItem('lernplan_dark_mode', enabled ? '1' : '0'); document.getElementById('toggle-dark').textContent = enabled ? 'Light Mode' : 'Dark Mode'; }
 function initDarkMode(){ setDarkMode(localStorage.getItem('lernplan_dark_mode') === '1'); }
@@ -1490,6 +1593,7 @@ function changeMonth(offset){ currentMonthDate.setMonth(currentMonthDate.getMont
 document.getElementById('prev-month').addEventListener('click', ()=>changeMonth(-1));
 document.getElementById('next-month').addEventListener('click', ()=>changeMonth(1));
 document.getElementById('export-data').addEventListener('click', exportData);
+document.getElementById('export-ics').addEventListener('click', exportICS);
 document.getElementById('import-data').addEventListener('click', ()=> document.getElementById('file-import').click());
 document.getElementById('file-import').addEventListener('change', e=>{ const file = e.target.files[0]; if(file) importData(file); e.target.value=''; });
 document.getElementById('toggle-dark').addEventListener('click', ()=> setDarkMode(!document.documentElement.classList.contains('dark')));
